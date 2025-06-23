@@ -1,5 +1,6 @@
 import React, { useRef, DragEvent } from "react";
 import { UploadCloud, Trash2 } from "lucide-react";
+import { sendTrace } from "../pyHelper";
 
 interface UploadProps {
   file: File | null;
@@ -34,9 +35,7 @@ const UploadPage: React.FC<UploadProps> = ({ file, setFile }) => {
 
   const upload = () => {
     if (!file) return;
-    // stub: replace with real upload logic
-    console.log("Uploading", file);
-    alert(`Uploading ${file.name}`);
+    sendTrace(file.path)
   };
 
   return (
