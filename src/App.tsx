@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { HashRouter, Routes, Route, Link } from "react-router-dom";
-import Navbar from "./components/NavBar";
+import { HashRouter, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
 import Upload from "./screens/Upload";
 import Compare from "./screens/Compare";
 import Reports from "./screens/Reports";
