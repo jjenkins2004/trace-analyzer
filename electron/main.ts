@@ -2,7 +2,6 @@ import { app, BrowserWindow } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { startPythonProcess } from "./pyBridge";
 import { ChildProcessWithoutNullStreams } from "node:child_process";
 import "./pyBridge"
 

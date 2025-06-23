@@ -4,10 +4,22 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ipcMain } from "electron";
 
-// Create the python process, by running the equiv of python3 `path/parse.py`.
-// The pipe, pipe, pipe stuff creates pipes between the python stdIOs with our stdIOs
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const proc = spawn("python3", [path.join(__dirname, "../core/parse.py")], {
+
+// Create the python process, by running the equiv of activating the virtual environment then running python3 `path/parse.py`.
+// Also check if the virtual environment is created because we use that python binary to execute our process, that way we have installed modules
+// The pipe, pipe, pipe stuff creates pipes between the python stdIOs with our stdIOs
+const pythonExe =
+  process.platform === "win32"
+    ? path.join(__dirname, "..", "core", ".venv", "Scripts", "python.exe")
+    : path.join(__dirname, "..", "core", ".venv", "bin", "python");
+import fs from "fs";
+if (!fs.existsSync(pythonExe)) {
+  throw new Error(
+    `Python executable not found at ${pythonExe}. Create a python virtual environment named '.venv' in the core folder, and install requirements.txt`
+  );
+}
+const proc = spawn(pythonExe, [path.join(__dirname, "../core/parse.py")], {
   stdio: ["pipe", "pipe", "pipe"],
 });
 

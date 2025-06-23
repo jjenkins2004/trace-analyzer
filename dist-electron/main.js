@@ -4,8 +4,15 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+import fs from "fs";
 const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
-const proc = spawn("python3", [path.join(__dirname$1, "../core/parse.py")], {
+const pythonExe = process.platform === "win32" ? path.join(__dirname$1, "..", "core", ".venv", "Scripts", "python.exe") : path.join(__dirname$1, "..", "core", ".venv", "bin", "python");
+if (!fs.existsSync(pythonExe)) {
+  throw new Error(
+    `Python executable not found at ${pythonExe}. Create a python virtual environment named '.venv' in the core folder, and install requirements.txt`
+  );
+}
+const proc = spawn(pythonExe, [path.join(__dirname$1, "../core/parse.py")], {
   stdio: ["pipe", "pipe", "pipe"]
 });
 const rl = createInterface({ input: proc.stdout });
