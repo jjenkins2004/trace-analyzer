@@ -12,39 +12,39 @@ const Navbar: React.FC = () => {
   const location = useLocation();
 
   return (
-    <nav className="w-full bg-gray-900 text-gray-200 shadow-md">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo or Brand placeholder */}
-          <div className="text-xl font-semibold">
-            <Link to="/" className="hover:text-white">
-              Wifi Doctor
-            </Link>
+    <nav className="w-full bg-gray-900 text-gray-200 shadow-md relative h-14 flex items-center">
+      <div className="text-xl font-bold px-4 absolute hidden lg:block">
+        <Link
+          to="/"
+          className="flex items-center space-x-2 hover:text-white transition-colors"
+        >
+          <span className="text-2xl font-bold">Trace Analyzer</span>
+          <div className="flex space-x-1 items-center transform -rotate-45">
+            <div className="bg-green-400 w-1 h-2 origin-bottom signal-pulse-1" />
+            <div className="bg-green-400 w-1 h-4 origin-bottom signal-pulse-2" />
+            <div className="bg-green-400 w-1 h-6 origin-bottom signal-pulse-3" />
           </div>
-          {/* Nav links */}
-          <div className="flex space-x-8">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.to;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.to}
-                  className={`relative px-3 py-2 font-medium transition-all $
-                    isActive ? 'text-white' : 'text-gray-400 hover:text-white'
-                  `}
-                >
-                  {item.name}
-                  <span
-                    className={`absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 transform $
-                      isActive ? 'scale-x-100' : 'scale-x-0'
-                    transition-transform`}
-                  />
-                </Link>
-              );
-            })}
-          </div>
-          {/* Optional dark mode toggle placeholder */}
-          <div>{/* Insert your theme toggle component here */}</div>
+        </Link>
+      </div>
+      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
+        <div className="flex-1 flex justify-center">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.to;
+            return (
+              <Link
+                key={item.name}
+                to={item.to}
+                className={
+                  `mx-3 px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center ` +
+                  (isActive
+                    ? "bg-indigo-600 text-white"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white")
+                }
+              >
+                {item.name}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </nav>
