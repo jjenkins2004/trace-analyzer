@@ -12,7 +12,7 @@ if (!fs.existsSync(pythonExe)) {
     `Python executable not found at ${pythonExe}. Create a python virtual environment named '.venv' in the core folder, and install requirements.txt`
   );
 }
-const proc = spawn(pythonExe, [path.join(__dirname$1, "../core/parse.py")], {
+const proc = spawn(pythonExe, [path.join(__dirname$1, "../core/main.py")], {
   stdio: ["pipe", "pipe", "pipe"]
 });
 const rl = createInterface({ input: proc.stdout });
@@ -43,7 +43,7 @@ async function request(payload) {
       rl.off("line", onLine);
       proc.stderr.off("data", onErr);
       reject(new Error("Python response timed out"));
-    }, 1e4);
+    }, 6e4);
   });
 }
 ipcMain.handle("request", async (_evt, payload) => {

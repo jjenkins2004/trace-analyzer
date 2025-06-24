@@ -6,7 +6,7 @@ import { ipcMain } from "electron";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Create the python process, by running the equiv of activating the virtual environment then running python3 `path/parse.py`.
+// Create the python process, by running the equiv of activating the virtual environment then running python3 `path/main.py`.
 // Also check if the virtual environment is created because we use that python binary to execute our process, that way we have installed modules
 // The pipe, pipe, pipe stuff creates pipes between the python stdIOs with our stdIOs
 const pythonExe =
@@ -19,7 +19,7 @@ if (!fs.existsSync(pythonExe)) {
     `Python executable not found at ${pythonExe}. Create a python virtual environment named '.venv' in the core folder, and install requirements.txt`
   );
 }
-const proc = spawn(pythonExe, [path.join(__dirname, "../core/parse.py")], {
+const proc = spawn(pythonExe, [path.join(__dirname, "../core/main.py")], {
   stdio: ["pipe", "pipe", "pipe"],
 });
 
@@ -68,7 +68,7 @@ export async function request(payload: object) {
       rl.off("line", onLine);
       proc.stderr.off("data", onErr);
       reject(new Error("Python response timed out"));
-    }, 10000);
+    }, 60000);
   });
 }
 

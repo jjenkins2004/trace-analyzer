@@ -1,40 +1,38 @@
-import pyshark
-from collections import Counter
+import time
+import os
+import sys
+
+from density import network_density
 
 
 def analyze(path: str) -> dict[str, any]:
-    """
-    Analyze the given pcap file and return a summary dict.
-    """
-    # Open the capture (lazy, no decoding until used)
-    cap = pyshark.FileCapture(path, keep_packets=False)
 
-    total_packets = 0
-    proto_counter = Counter()
-    src_counter = Counter()
+    # Start timer
+    start = time.time()
+    # cap.load_packets()
 
-    for pkt in cap:
-        if total_packets > 1000:
-            break
-        
-        total_packets += 1
+    scores = network_density(path=path)
 
-        # Protocol layer names (e.g. 'IP', 'TCP', 'HTTP')
-        for layer in pkt.layers:
-            proto_counter[layer.layer_name.upper()] += 1
+    # Stop timer
+    elapsed = time.time() - start
 
-        # Source IP (if present)
-        if "IP" in pkt:
-            src = pkt.ip.src
-            src_counter[src] += 1
+    print(elapsed)
+    return scores
 
-    cap.close()
 
-    # Build the summary
-    summary = {
-        "total_packets": total_packets,
-        "protocol_counts": dict(proto_counter.most_common()),
-        "top_source_ips": src_counter.most_common(5),
-    }
+if __name__ == "__main__":
+    import pprint
 
-    return summary
+    result = analyze(path="test_pcap/newnewtest.pcap")
+
+    sorted_items = sorted(
+        result.items(),
+        key=lambda kv: kv[1].score,
+        reverse=True,
+    )
+
+    pprint.pprint(sorted_items, width=80)
+
+    # Suppress any TShark stderr noise
+    devnull = open(os.devnull, "w")
+    sys.stderr = devnull
