@@ -23,15 +23,9 @@ def analyze(path: str) -> dict[str, any]:
 if __name__ == "__main__":
     import pprint
 
-    result = analyze(path="test_pcap/newnewtest.pcap")
+    result = analyze(path="test_pcap/dense-sparse-dense.pcap")
 
-    sorted_items = sorted(
-        result.items(),
-        key=lambda kv: kv[1].score,
-        reverse=True,
-    )
-
-    pprint.pprint(sorted_items, width=80)
+    pprint.pprint(result, width=80)
 
     # Suppress any TShark stderr noise
     devnull = open(os.devnull, "w")

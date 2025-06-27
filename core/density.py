@@ -22,7 +22,7 @@ class BeaconFrame:
     protocol: str
     rssi: float
     snr: float
-    timestamp: int
+    timestamp: float
 
 
 @dataclass
@@ -42,6 +42,7 @@ class Bin:
     avg_snr_in_interval: float
     density_rating_in_interval: float
     start_time: int
+    end_time: int
 
 
 @dataclass
@@ -58,31 +59,37 @@ class DensityAnalysis:
 def network_density(path: str):
     frames = extract(path=path)
 
-    start_ts = frames[0].timestamp
-    end_ts = frames[-1].timestamp
-    lifespan = end_ts - start_ts
+    if not frames:
+        raise ValueError("No frames extracted")
+    
+    start_time = float(frames[0].timestamp)
+    for f in frames:
+        f.rel_time = float(f.timestamp) - start_time
 
-    interval_s = find_time_interval(lifespan=lifespan)
-    interval_us = interval_s * 1_000_000
+    frames.sort(key=lambda f: f.rel_time)
 
-    num_bins = math.ceil(lifespan / interval_us)
+    lifespan = frames[-1].rel_time
+    interval_s = find_time_interval(lifespan_s=lifespan)
+
+    num_bins = math.ceil(lifespan / interval_s)
 
     all_bins: list[Bin] = []
+    found_devices = set()
+    frame_idx = 0
 
     for b in range(num_bins):
-        bin_start = start_ts + b * interval_us
-        bin_end = bin_start + interval_us
+        bin_start = b * interval_s
+        bin_end = lifespan if b == num_bins - 1 else bin_start + interval_s
 
-        devices: dict[str:DeviceInfo] = {}
+        devices: dict[str, DeviceInfo] = {}
 
-        for frame in frames:
-            if frame.timestamp < bin_start:
-                continue
-            if frame.timestamp >= bin_end:
-                break
+        while frame_idx < len(frames) and frames[frame_idx].rel_time <= bin_end:
+            frame = frames[frame_idx]
+            frame_idx += 1
 
             # Initialize if first time seeing this BSSID
             if frame.sa not in devices:
+                found_devices.add(frame.sa)
                 devices[frame.sa] = DeviceInfo(
                     sa=frame.sa,
                     type=frame.type,
@@ -98,27 +105,60 @@ def network_density(path: str):
 
         total_snr: float = 0
         total_frames: int = 0
-        for value in devices.values():
-            value.score = value.total_snr / value.total_frames
+        total_score: float = 0
 
-        all_bins.append(
-            Bin(
-                devices=devices,
-                total_devices_in_interval=len(devices),
-                total_frames_in_interval= total_frames/len(devices),
-                avg_snr_in_interval= total_snr / len(devices),
-                density_rating_in_interval=getRating(),
-                start_time=bin_start
+        if devices:
+            for value in devices.values():
+                value.score = value.total_snr / value.total_frames
+                total_score += value.score
+                total_snr += value.total_snr
+                total_frames += value.total_frames
+
+            all_bins.append(
+                Bin(
+                    devices=devices,
+                    total_devices_in_interval=len(devices),
+                    total_frames_in_interval=total_frames,
+                    avg_snr_in_interval=total_snr / (total_frames),
+                    density_rating_in_interval=getRating(total_score=total_score),
+                    start_time=bin_start,
+                    end_time=bin_end,
+                )
             )
-        )
+        else:
+            all_bins.append(
+                Bin(
+                    devices={},
+                    total_devices_in_interval=0,
+                    total_frames_in_interval=0,
+                    avg_snr_in_interval=0,
+                    density_rating_in_interval=0,
+                    start_time=bin_start,
+                    end_time=bin_end,
+                )
+            )
+
+    return DensityAnalysis(
+        interval=interval_s,
+        bins=all_bins,
+        total_devices=len(found_devices),
+        total_frames=len(frames),
+        avg_snr=sum(
+            bin.avg_snr_in_interval * (bin.end_time - bin.start_time) / lifespan
+            for bin in all_bins
+        ),
+        density_rating=sum(
+            bin.density_rating_in_interval * (bin.end_time - bin.start_time) / lifespan
+            for bin in all_bins
+        ),
+    )
 
 
-def find_time_interval(lifespan: int) -> int:
+def find_time_interval(lifespan_s: float) -> int:
     """
     Returns the time interval in seconds
     """
     possible_intervals = [1, 2, 5, 10, 15, 20, 30]
-    total_seconds = lifespan / 1_000_000
     TARGET_BINS = 10
 
     best_interval = possible_intervals[0]
@@ -126,7 +166,7 @@ def find_time_interval(lifespan: int) -> int:
 
     for iv in possible_intervals:
         # how many bins we'd get
-        num_bins = total_seconds / iv
+        num_bins = lifespan_s / iv
         # how far is that from our target?
         diff = abs(num_bins - TARGET_BINS)
         if diff < best_diff:
@@ -134,6 +174,15 @@ def find_time_interval(lifespan: int) -> int:
             best_interval = iv
 
     return best_interval
+
+
+max_score = 250
+
+
+def getRating(total_score: float) -> float:
+    if total_score <= 0:
+        return 0.0
+    return min(total_score / max_score, 1.0)
 
 
 def extract(path: str) -> list[BeaconFrame]:
@@ -167,7 +216,7 @@ def extract(path: str) -> list[BeaconFrame]:
                 noise = float(radio.noise_dbm)
                 snr = rssi - noise
 
-                timestamp = int(radio.timestamp)
+                timestamp = float(pkt.sniff_timestamp)
 
                 frames.append(
                     BeaconFrame(
