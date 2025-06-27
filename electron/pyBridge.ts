@@ -48,6 +48,7 @@ export async function request(payload: object) {
     // Handle content written to stderr
     const onErr = (chunk: Buffer) => {
       cleanup();
+      console.error("[Python]", chunk.toString())
       reject(new Error(`Python stderr: ${chunk.toString().trim()}`));
     };
 

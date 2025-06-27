@@ -29,6 +29,7 @@ async function request(payload) {
     };
     const onErr = (chunk) => {
       cleanup();
+      console.error("[Python]", chunk.toString());
       reject(new Error(`Python stderr: ${chunk.toString().trim()}`));
     };
     function cleanup() {

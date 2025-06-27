@@ -7,16 +7,8 @@ from density import network_density
 
 def analyze(path: str) -> dict[str, any]:
 
-    # Start timer
-    start = time.time()
-    # cap.load_packets()
-
     scores = network_density(path=path)
 
-    # Stop timer
-    elapsed = time.time() - start
-
-    print(elapsed)
     return scores
 
 
