@@ -31,11 +31,15 @@ const UploadPage: React.FC<UploadProps> = ({ file, setFile }) => {
 
   const removeFile = () => {
     setFile(null);
+    if (inputRef.current) {
+      // clear the browser’s file picker value
+      inputRef.current.value = "";
+    }
   };
 
   const upload = () => {
     if (!file) return;
-    sendTrace(file.path)
+    sendTrace(file.path);
   };
 
   return (

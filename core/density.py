@@ -5,11 +5,6 @@ from enum import Enum
 import math
 
 
-class NetworkDensity:
-    total_beacon: int
-    total_unique: int
-
-
 class DeviceType(Enum):
     CLIENT = 0
     ACCESS_POINT = 1
@@ -17,8 +12,18 @@ class DeviceType(Enum):
 
 @dataclass
 class BeaconFrame:
+    """
+    Represents a parsed beacon frame from a Wi-Fi capture.
+
+    Attributes:
+        sa (str): Source MAC address of the access point (BSSID).
+        protocol (str): Wi-Fi protocol in use (e.g., 802.11g, 802.11n).
+        rssi (float): Received Signal Strength Indicator (RSSI) in dBm.
+        snr (float): Signal-to-Noise Ratio (SNR) in dB.
+        timestamp (float): Time when the frame was captured, in seconds from the start of the capture.
+    """
+
     sa: str
-    type: DeviceType
     protocol: str
     rssi: float
     snr: float
@@ -27,8 +32,17 @@ class BeaconFrame:
 
 @dataclass
 class DeviceInfo:
+    """
+    Represents info for a unique device found from the beacon frames
+
+    Attributes:
+        sa (str): Source MAC address of the access point (BSSID).
+        total_frames (int): Total frames found for this device in an interval.
+        total_snr (int): Total SNR added in dBm.
+        score (float): Contributing score of this device for an interval for the overall density metric.
+    """
+
     sa: str
-    type: DeviceType
     total_frames: int
     total_snr: float
     score: float
@@ -36,17 +50,41 @@ class DeviceInfo:
 
 @dataclass
 class Bin:
+    """
+    Data aggregated over a single time interval (bin) in the trace.
+
+    Attributes:
+        devices (list[DeviceInfo]): List of unique devices observed in this interval.
+        total_devices_in_interval (int): Number of distinct devices detected.
+        total_frames_in_interval (int): Total frames captured in this interval.
+        avg_snr_in_interval (float): Average signal-to-noise ratio across all frames in this interval.
+        density_rating_in_interval (float): Computed network density score (0-1).
+        start_time (int): Start timestamp (in seconds) of this interval relative to capture start.
+        end_time (int): End timestamp (in seconds) of this interval relative to capture start.
+    """
+
     devices: list[DeviceInfo]
     total_devices_in_interval: int
     total_frames_in_interval: int
     avg_snr_in_interval: float
     density_rating_in_interval: float
-    start_time: int
-    end_time: int
+    start_time: float
+    end_time: float
 
 
 @dataclass
 class DensityAnalysis:
+    """
+    Summary of the network density analysis over the entire packet capture.
+
+    Attributes:
+        interval (int): Duration (in seconds) of each bin.
+        bins (list[Bin]): List of bin-level statistics computed over time intervals.
+        total_devices (int): Total number of unique source devices (APs) seen across the capture.
+        total_frames (int): Total number of frames captured throughout the trace.
+        avg_snr (float): Time-weighted average signal-to-noise ratio across all bins.
+        density_rating (float): Time-weighted Overall density score (normalized 0–1) for all bins.
+    """
     interval: int
     bins: list[Bin]
     total_devices: int
@@ -57,33 +95,34 @@ class DensityAnalysis:
 
 # For now we will calculate a density for the entire trace, but will break it up into smaller units of time
 def network_density(path: str):
+
+    # Extract all frames
     frames = extract(path=path)
 
+    # Quit here if no frames were extracted
     if not frames:
         raise ValueError("No frames extracted")
-    
-    start_time = float(frames[0].timestamp)
-    for f in frames:
-        f.rel_time = float(f.timestamp) - start_time
 
-    frames.sort(key=lambda f: f.rel_time)
-
-    lifespan = frames[-1].rel_time
+    # Find the total lifespan of the trace, best time interval for each bin, and num of bins 
+    lifespan = frames[-1].timestamp
     interval_s = find_time_interval(lifespan_s=lifespan)
-
     num_bins = math.ceil(lifespan / interval_s)
 
     all_bins: list[Bin] = []
     found_devices = set()
     frame_idx = 0
 
+    # Loop through the number of bins we have
     for b in range(num_bins):
+
+        # Find the start and end time of the bin relative to capture start
         bin_start = b * interval_s
         bin_end = lifespan if b == num_bins - 1 else bin_start + interval_s
 
         devices: dict[str, DeviceInfo] = {}
 
-        while frame_idx < len(frames) and frames[frame_idx].rel_time <= bin_end:
+        # Only go through frames that are in this time bin
+        while frame_idx < len(frames) and frames[frame_idx].timestamp <= bin_end:
             frame = frames[frame_idx]
             frame_idx += 1
 
@@ -92,7 +131,7 @@ def network_density(path: str):
                 found_devices.add(frame.sa)
                 devices[frame.sa] = DeviceInfo(
                     sa=frame.sa,
-                    type=frame.type,
+                    # type=frame.type,
                     total_frames=1,
                     total_snr=frame.snr,
                     score=0,
@@ -108,6 +147,7 @@ def network_density(path: str):
         total_score: float = 0
 
         if devices:
+            # Calculate scores for each device and update global metrics
             for value in devices.values():
                 value.score = value.total_snr / value.total_frames
                 total_score += value.score
@@ -138,6 +178,7 @@ def network_density(path: str):
                 )
             )
 
+    # Return a complete analysis based on all time intervals
     return DensityAnalysis(
         interval=interval_s,
         bins=all_bins,
@@ -165,9 +206,9 @@ def find_time_interval(lifespan_s: float) -> int:
     best_diff = float("inf")
 
     for iv in possible_intervals:
-        # how many bins we'd get
+        # How many bins we get with this chosen interval
         num_bins = lifespan_s / iv
-        # how far is that from our target?
+        # How ideal is it?
         diff = abs(num_bins - TARGET_BINS)
         if diff < best_diff:
             best_diff = diff
@@ -176,8 +217,11 @@ def find_time_interval(lifespan_s: float) -> int:
     return best_interval
 
 
+"""
+Completely hypotetical upperbound for network density. Hypothetical 30ft x 30ft room with 5 access points and each giving an
+average of 50 SNR per AP. 
+"""
 max_score = 250
-
 
 def getRating(total_score: float) -> float:
     if total_score <= 0:
@@ -196,36 +240,37 @@ def extract(path: str) -> list[BeaconFrame]:
 
     frames: list[BeaconFrame] = []
 
+    start_time = float(cap[0].timestamp)
+
     # Extract relevant data
-    count = 0
     try:
         for pkt in cap:
             try:
-                # 1) Source Address, same as BSSID for APs
+                # Source Address, same as BSSID for APs
                 sa = pkt.wlan.sa
 
                 radio = pkt.wlan_radio
 
-                # 3) Type/Subtype (e.g. “0x08” for beacon)
+                # Type/Subtype (e.g. “0x08” for beacon)
                 protocol = radio.phy
 
-                # 4) RSSI (dBm_AntSignal)
+                # RSSI (dBm_AntSignal)
                 rssi = float(radio.signal_dbm)
 
-                # 5) Noise (dBm_AntNoise) → compute SNR
+                # Noise (dBm_AntNoise) -> compute SNR
                 noise = float(radio.noise_dbm)
                 snr = rssi - noise
 
-                timestamp = float(pkt.sniff_timestamp)
+                timestamp = float(pkt.sniff_timestamp) - start_time
 
                 frames.append(
                     BeaconFrame(
                         sa=sa,
-                        type=(
-                            DeviceType.ACCESS_POINT
-                            if int(pkt.wlan.type_subtype, 16) == 8
-                            else DeviceType.CLIENT
-                        ),
+                        # type=(
+                        #     DeviceType.ACCESS_POINT
+                        #     if int(pkt.wlan.type_subtype, 16) == 8
+                        #     else DeviceType.CLIENT
+                        # ),
                         protocol=protocol,
                         rssi=rssi,
                         snr=snr,
@@ -235,6 +280,10 @@ def extract(path: str) -> list[BeaconFrame]:
             except (AttributeError, ValueError) as e:
                 print(e)
                 return
+            
+        # Ensure results are sorted by timestamp
+        frames.sort(key=lambda f: f.timestamp)
+
     except TSharkCrashException:
         pass
     finally:

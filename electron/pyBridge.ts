@@ -14,6 +14,7 @@ const pythonExe =
     ? path.join(__dirname, "..", "core", ".venv", "Scripts", "python.exe")
     : path.join(__dirname, "..", "core", ".venv", "bin", "python");
 import fs from "fs";
+import { CircleFadingPlus } from "lucide-react";
 if (!fs.existsSync(pythonExe)) {
   throw new Error(
     `Python executable not found at ${pythonExe}. Create a python virtual environment named '.venv' in the core folder, and install requirements.txt`
@@ -38,38 +39,33 @@ export async function request(payload: object) {
     // Define our action on receiving a line
     const onLine = (line: string) => {
       cleanup();
+      let msg;
       try {
-        resolve(JSON.parse(line));
+        msg = JSON.parse(line);
       } catch {
-        reject(new Error("Invalid JSON from Python"));
+        return reject(new Error("Invalid JSON from Python:\n" + line));
       }
-    };
-
-    // Handle content written to stderr
-    const onErr = (chunk: Buffer) => {
-      cleanup();
-      console.error("[Python]", chunk.toString())
-      reject(new Error(`Python stderr: ${chunk.toString().trim()}`));
+      if (msg.error) {
+        reject(new Error(msg.error));
+      } else {
+        resolve(msg);
+      }
     };
 
     // Cleanup both listeners & timer
     function cleanup() {
       clearTimeout(timer);
       rl.off("line", onLine);
-      proc.stderr.off("data", onErr);
     }
 
-    // Create one-shot listeners
+    // Create one-shot listener
     rl.once("line", onLine);
-    proc.stderr.once("data", onErr);
 
     // Timeout handler
     const timer = setTimeout(() => {
-      clearTimeout(timer);
-      rl.off("line", onLine);
-      proc.stderr.off("data", onErr);
+      cleanup();
       reject(new Error("Python response timed out"));
-    }, 60000);
+    }, 10000);
   });
 }
 

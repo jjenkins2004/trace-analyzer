@@ -21,30 +21,27 @@ async function request(payload) {
   return new Promise((resolve, reject) => {
     const onLine = (line) => {
       cleanup();
+      let msg;
       try {
-        resolve(JSON.parse(line));
+        msg = JSON.parse(line);
       } catch {
-        reject(new Error("Invalid JSON from Python"));
+        return reject(new Error("Invalid JSON from Python:\n" + line));
       }
-    };
-    const onErr = (chunk) => {
-      cleanup();
-      console.error("[Python]", chunk.toString());
-      reject(new Error(`Python stderr: ${chunk.toString().trim()}`));
+      if (msg.error) {
+        reject(new Error(msg.error));
+      } else {
+        resolve(msg);
+      }
     };
     function cleanup() {
       clearTimeout(timer);
       rl.off("line", onLine);
-      proc.stderr.off("data", onErr);
     }
     rl.once("line", onLine);
-    proc.stderr.once("data", onErr);
     const timer = setTimeout(() => {
-      clearTimeout(timer);
-      rl.off("line", onLine);
-      proc.stderr.off("data", onErr);
+      cleanup();
       reject(new Error("Python response timed out"));
-    }, 6e4);
+    }, 1e4);
   });
 }
 ipcMain.handle("request", async (_evt, payload) => {
