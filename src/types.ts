@@ -1,5 +1,6 @@
 export enum Errors {
     TITLE_EXITST,
+    NO_TITLE,
     PROCESSING_ERROR,
     UNKNOWN
 }

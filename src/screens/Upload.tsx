@@ -1,6 +1,7 @@
-import React, { useRef, DragEvent } from "react";
+import React, { useRef, DragEvent, useState } from "react";
 import { UploadCloud, Trash2 } from "lucide-react";
-import { processTrace, sendTrace } from "../pyHelper";
+import { processTrace } from "../pyHelper";
+import { createError, Errors, ReportData, ErrorWithCode } from "../types";
 
 interface UploadProps {
   file: File | null;
@@ -8,6 +9,9 @@ interface UploadProps {
 }
 
 const UploadPage: React.FC<UploadProps> = ({ file, setFile }) => {
+  const [title, setTitle] = useState<string>("");
+  const [processing, setProcessing] = useState<boolean>(false);
+  const [error, setError] = useState<ErrorWithCode | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFile = (selected: FileList | null) => {
@@ -39,9 +43,19 @@ const UploadPage: React.FC<UploadProps> = ({ file, setFile }) => {
 
   const upload = () => {
     if (!file) return;
-    processTrace(file.path)
-      .then(() => {})
-      .catch(() => {});
+    if (title == "") {
+      setError(createError("Provide a report title!", Errors.NO_TITLE));
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    setProcessing(true);
+    processTrace(file.path, title)
+      .then((report: ReportData) => {
+        console.log(report);
+      })
+      .catch((error: Error) => {
+        setError(error);
+      });
   };
 
   return (
@@ -65,20 +79,55 @@ const UploadPage: React.FC<UploadProps> = ({ file, setFile }) => {
       </div>
 
       {file && (
-        <div className="w-full max-w-md mt-6 bg-gray-700 rounded-lg p-4">
-          <h2 className="text-gray-200 font-medium mb-2">Selected Trace</h2>
-          <div className="flex justify-between items-center bg-gray-800 rounded px-3 py-2">
-            <span className="truncate text-gray-300">{file.name}</span>
-            <button onClick={removeFile}>
-              <Trash2 className="w-5 h-5 text-red-400 hover:text-red-600" />
+        <div className="w-full max-w-md">
+          <div className="mt-8 space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Report Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Enter a title for this report"
+              className={`w-full px-4 py-2 bg-gray-800 text-gray-100 placeholder-gray-500 border-2 rounded-lg focus:outline-none transition-colors duration-400 ease-out
+                ${
+                  error?.code == Errors.NO_TITLE ||
+                  error?.code == Errors.TITLE_EXITST
+                    ? "border-red-500 focus:ring-red-500 animate-shake"
+                    : "border-gray-600 focus:ring-blue-500"
+                }`}
+            />
+            <p
+              className={`h-5 text-sm text-red-500 pt-1 transition-opacity duration-400 ease-in-out ${
+                error &&
+                (error.code === Errors.NO_TITLE ||
+                  error.code === Errors.TITLE_EXITST)
+                  ? "opacity-100"
+                  : "opacity-0"
+              }`}
+            >
+              {error &&
+              (error.code === Errors.NO_TITLE ||
+                error.code === Errors.TITLE_EXITST)
+                ? error.message
+                : ""}
+            </p>
+          </div>
+          <div className="w-full max-w-md mt-6 bg-gray-700 rounded-lg p-4">
+            <h2 className="text-gray-200 font-medium mb-2">Selected Trace</h2>
+            <div className="flex justify-between items-center bg-gray-800 rounded px-3 py-2">
+              <span className="truncate text-gray-300">{file.name}</span>
+              <button onClick={removeFile}>
+                <Trash2 className="w-5 h-5 text-red-400 hover:text-red-600" />
+              </button>
+            </div>
+            <button
+              onClick={upload}
+              className="mt-4 w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
+            >
+              Analyze
             </button>
           </div>
-          <button
-            onClick={upload}
-            className="mt-4 w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
-          >
-            Analyze
-          </button>
         </div>
       )}
     </div>
