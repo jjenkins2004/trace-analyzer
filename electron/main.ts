@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { ChildProcessWithoutNullStreams } from "node:child_process";
 import "./pyBridge"
+import "./store"
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
