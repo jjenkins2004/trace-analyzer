@@ -15,6 +15,10 @@ export function createError(message: string, code: Errors): ErrorWithCode {
   return err;
 }
 
+export interface processingResponse {
+  density: DensityAnalysis;
+}
+
 
 export interface DeviceInfo {
   sa: string;

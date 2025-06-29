@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ipcMain } from "electron";
 
-import { createError, Errors } from "../src/types";
+import { createError, Errors, processingResponse } from "../src/types";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,7 +49,7 @@ export async function request(payload: object) {
       if (msg.error) {
         reject(createError(msg.error, Errors.PROCESSING_ERROR));
       } else {
-        resolve(msg);
+        resolve(msg as processingResponse);
       }
     };
 

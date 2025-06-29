@@ -3,6 +3,7 @@ from pyshark.capture.capture import TSharkCrashException
 from dataclasses import dataclass
 from enum import Enum
 import math
+from itertools import chain
 
 
 class DeviceType(Enum):
@@ -85,6 +86,7 @@ class DensityAnalysis:
         avg_snr (float): Time-weighted average signal-to-noise ratio across all bins.
         density_rating (float): Time-weighted Overall density score (normalized 0–1) for all bins.
     """
+
     interval: int
     bins: list[Bin]
     total_devices: int
@@ -103,7 +105,7 @@ def network_density(path: str):
     if not frames:
         raise ValueError("No frames extracted")
 
-    # Find the total lifespan of the trace, best time interval for each bin, and num of bins 
+    # Find the total lifespan of the trace, best time interval for each bin, and num of bins
     lifespan = frames[-1].timestamp
     interval_s = find_time_interval(lifespan_s=lifespan)
     num_bins = math.ceil(lifespan / interval_s)
@@ -223,6 +225,7 @@ average of 50 SNR per AP.
 """
 max_score = 250
 
+
 def getRating(total_score: float) -> float:
     if total_score <= 0:
         return 0.0
@@ -240,12 +243,17 @@ def extract(path: str) -> list[BeaconFrame]:
 
     frames: list[BeaconFrame] = []
 
-    start_time = float(cap[0].timestamp)
+    first = True
+    start_time: float
 
     # Extract relevant data
     try:
+        # Add the first packet back into the iterator chain
         for pkt in cap:
             try:
+                if first:
+                    start_time = float(pkt.sniff_timestamp)
+                    first = False
                 # Source Address, same as BSSID for APs
                 sa = pkt.wlan.sa
 
@@ -280,7 +288,7 @@ def extract(path: str) -> list[BeaconFrame]:
             except (AttributeError, ValueError) as e:
                 print(e)
                 return
-            
+
         # Ensure results are sorted by timestamp
         frames.sort(key=lambda f: f.timestamp)
 

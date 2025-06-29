@@ -55,6 +55,7 @@ const UploadPage: React.FC<UploadProps> = ({ file, setFile }) => {
       })
       .catch((error: Error) => {
         setError(error);
+        console.log(error);
       });
   };
 
