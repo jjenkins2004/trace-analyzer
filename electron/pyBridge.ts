@@ -4,6 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ipcMain } from "electron";
 
+import { createError, Errors } from "../src/types";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Create the python process, by running the equiv of activating the virtual environment then running python3 `path/main.py`.
@@ -14,7 +16,6 @@ const pythonExe =
     ? path.join(__dirname, "..", "core", ".venv", "Scripts", "python.exe")
     : path.join(__dirname, "..", "core", ".venv", "bin", "python");
 import fs from "fs";
-import { CircleFadingPlus } from "lucide-react";
 if (!fs.existsSync(pythonExe)) {
   throw new Error(
     `Python executable not found at ${pythonExe}. Create a python virtual environment named '.venv' in the core folder, and install requirements.txt`
@@ -43,10 +44,10 @@ export async function request(payload: object) {
       try {
         msg = JSON.parse(line);
       } catch {
-        return reject(new Error("Invalid JSON from Python:\n" + line));
+        reject(createError("Processing returned an unexpected response", Errors.PROCESSING_ERROR));
       }
       if (msg.error) {
-        reject(new Error(msg.error));
+        reject(createError(msg.error, Errors.PROCESSING_ERROR));
       } else {
         resolve(msg);
       }
@@ -64,7 +65,7 @@ export async function request(payload: object) {
     // Timeout handler
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error("Python response timed out"));
+      reject(createError("Processing timed out, the file may be too large", Errors.PROCESSING_ERROR));
     }, 10000);
   });
 }
