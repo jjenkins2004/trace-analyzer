@@ -85,6 +85,7 @@ export interface DensityAnalysis {
 export interface ReportData {
   id: string;
   title: string;
+  date: Date
   density: DensityAnalysis;
 }
 

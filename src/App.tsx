@@ -44,7 +44,7 @@ const PersistedApp: React.FC = () => {
             location.pathname === "/reports" ? "block w-full h-full" : "hidden"
           }
         >
-          <Reports reports={globalReports} />
+          <Reports reports={globalReports} onReportClick={() => {}} />
         </div>
       </div>
     </div>

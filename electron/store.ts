@@ -85,7 +85,7 @@ export const createReport = async (
   });
 
   // Create new shape
-  const report: ReportData = { id: id, ...input };
+  const report: ReportData = { id: id, date: new Date(), ...input };
 
   // Write the data
   store.set(report);
