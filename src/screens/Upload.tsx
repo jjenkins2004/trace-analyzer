@@ -1,14 +1,21 @@
 import React, { useRef, DragEvent, useState } from "react";
 import { UploadCloud, Trash2 } from "lucide-react";
 import { processTrace } from "../pyHelper";
-import { createError, Errors, ReportData, ErrorWithCode } from "../types";
+import {
+  createError,
+  Errors,
+  ReportData,
+  ErrorWithCode,
+  parseError,
+} from "../types";
 import LoadingScreen from "../components/LoadingScreen";
-
+import SuccessScreen from "../components/SuccessScreen";
 
 const UploadPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState<string>("");
   const [processing, setProcessing] = useState<boolean>(false);
+  const [success, setSuccess] = useState<boolean>(false);
   const [error, setError] = useState<ErrorWithCode | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -49,17 +56,35 @@ const UploadPage: React.FC = () => {
     setProcessing(true);
     processTrace(file.path, title)
       .then((report: ReportData) => {
-        setProcessing(false);
+        setSuccess(true);
         console.log(report);
       })
-      .catch((error: Error) => {
-        setError(error);
-        console.log(error);
+      .catch((error) => {
+        setError(parseError(error));
+      })
+      .finally(() => {
+        setProcessing(false);
       });
   };
 
   if (processing) {
     return <LoadingScreen text="Processing trace…" />;
+  }
+
+  if (success) {
+    return (
+      <SuccessScreen
+        title={title}
+        onUploadAnother={() => {
+          removeFile();
+          setTitle("");
+          setProcessing(false);
+          setSuccess(false);
+          setError(null);
+        }}
+        onShowReport={() => {}}
+      />
+    );
   }
 
   return (

@@ -3,15 +3,31 @@ import fs from "fs/promises";
 import syncfs from "fs";
 import path from "path";
 import Store from "electron-store";
-import { createError, Errors } from "../src/types";
+import { createError, Errors, serializeError } from "../src/types";
 import { ReportData, ReportDataInput } from "../src/types";
 
 ipcMain.handle("getReports", async () => {
-  return getReports();
+  try {
+    return await getReports();
+  } catch (err) {
+    throw serializeError(err);
+  }
 });
 
 ipcMain.handle("createReport", async (_event, report) => {
-  return createReport(report);
+  try {
+    return await createReport(report);
+  } catch (err) {
+    throw serializeError(err);
+  }
+});
+
+ipcMain.handle("checkTitle", async (_event, title) => {
+  try {
+    checkTitle(title);
+  } catch (err) {
+    throw serializeError(err);
+  }
 });
 
 export const getReports = async (): Promise<ReportData[]> => {
@@ -76,4 +92,20 @@ export const createReport = async (
 
   // Return the object shape your renderer expects
   return report;
+};
+
+const checkTitle = (title: string) => {
+  // Make sure no illegal characters
+  // remove any of \ / : * ? " < > |
+  title = title.replace(/[\\/:*?"<>|]/g, "").trim();
+
+  // Create ID based on title, removing spaces and lowering characters
+  const id = `${title}_report`.toLowerCase().replace(/\s+/g, "_");
+
+  // See if a file with that title already exists
+  const userDataDir = app.getPath("userData");
+  const filePath = path.join(userDataDir, `${id}.json`);
+  if (syncfs.existsSync(filePath)) {
+    throw createError("Title already exists.", Errors.TITLE_EXITST);
+  }
 };

@@ -10,8 +10,8 @@ export interface LoadingScreenProps {
 
 const LoadingScreen: React.FC<LoadingScreenProps> = ({ text = "" }) => (
   <div className="w-full h-full flex flex-col items-center justify-center">
-    <Loader className="w-16 h-16 text-[#495f84] animate-spin mb-4" />
-    {text && <div className="text-lg text-gray-700">{text}</div>}
+    <Loader className="w-16 h-16 text-primary animate-spin mb-4" />
+    {text && <div className="text-lg text-text-muted">{text}</div>}
   </div>
 );
 

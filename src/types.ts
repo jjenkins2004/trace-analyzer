@@ -1,12 +1,49 @@
 export enum Errors {
-    TITLE_EXITST,
-    NO_TITLE,
-    PROCESSING_ERROR,
-    UNKNOWN
+  TITLE_EXITST,
+  NO_TITLE,
+  PROCESSING_ERROR,
+  UNKNOWN,
 }
 
 export interface ErrorWithCode extends Error {
-    code?: Errors
+  code?: Errors;
+}
+
+export function serializeError(error: unknown) {
+  if (error instanceof Error && "code" in error) {
+    return JSON.stringify({
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      code: error.code,
+    });
+  }
+  return JSON.stringify({
+    message: error,
+    name: "",
+    stack: "",
+    code: Errors.UNKNOWN,
+  });
+}
+
+export function parseError(err: unknown): ErrorWithCode | null {
+  if (!(err instanceof Error)) {
+    return null;
+  }
+
+  const jsonStart = err.message.indexOf("{");
+  const jsonEnd = err.message.lastIndexOf("}");
+
+  if (jsonStart == -1 || jsonEnd == -1 || jsonEnd <= jsonStart) {
+    return null;
+  }
+
+  const jsonStr = err.message.substring(jsonStart, jsonEnd + 1);
+  try {
+    return JSON.parse(jsonStr) as ErrorWithCode;
+  } catch {
+    return null;
+  }
 }
 
 export function createError(message: string, code: Errors): ErrorWithCode {
@@ -18,7 +55,6 @@ export function createError(message: string, code: Errors): ErrorWithCode {
 export interface processingResponse {
   density: DensityAnalysis;
 }
-
 
 export interface DeviceInfo {
   sa: string;

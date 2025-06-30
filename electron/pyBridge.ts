@@ -4,7 +4,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ipcMain } from "electron";
 
-import { createError, Errors, processingResponse } from "../src/types";
+import {
+  createError,
+  Errors,
+  processingResponse,
+  serializeError,
+} from "../src/types";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,7 +49,12 @@ export async function request(payload: object) {
       try {
         msg = JSON.parse(line);
       } catch {
-        reject(createError("Processing returned an unexpected response", Errors.PROCESSING_ERROR));
+        reject(
+          createError(
+            "Processing returned an unexpected response",
+            Errors.PROCESSING_ERROR
+          )
+        );
       }
       if (msg.error) {
         reject(createError(msg.error, Errors.PROCESSING_ERROR));
@@ -65,12 +75,21 @@ export async function request(payload: object) {
     // Timeout handler
     const timer = setTimeout(() => {
       cleanup();
-      reject(createError("Processing timed out, the file may be too large", Errors.PROCESSING_ERROR));
+      reject(
+        createError(
+          "Processing timed out, the file may be too large",
+          Errors.PROCESSING_ERROR
+        )
+      );
     }, 10000);
   });
 }
 
 // Expose an api that our renderer can invoke
 ipcMain.handle("request", async (_evt, payload) => {
-  return await request(payload);
+  try {
+    return await request(payload);
+  } catch (err) {
+    throw serializeError(err);
+  }
 });
