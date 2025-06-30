@@ -30,7 +30,15 @@ ipcMain.handle("checkTitle", async (_event, title) => {
   }
 });
 
-export const getReports = async (): Promise<ReportData[]> => {
+ipcMain.handle("deleteReport", async (_event, id) => {
+  try {
+    await deleteReport(id);
+  } catch (err) {
+    throw serializeError(err);
+  }
+});
+
+const getReports = async (): Promise<ReportData[]> => {
   const userDataDir = app.getPath("userData");
   const entries = await fs.readdir(userDataDir);
 
@@ -62,9 +70,7 @@ export const getReports = async (): Promise<ReportData[]> => {
   return reports;
 };
 
-export const createReport = async (
-  input: ReportDataInput
-): Promise<ReportData> => {
+const createReport = async (input: ReportDataInput): Promise<ReportData> => {
   // Make sure no illegal characters
   // remove any of \ / : * ? " < > |
   input.title = input.title.replace(/[\\/:*?"<>|]/g, "").trim();
@@ -92,6 +98,19 @@ export const createReport = async (
 
   // Return the object shape your renderer expects
   return report;
+};
+
+const deleteReport = async (id: string) => {
+  const userDataDir = app.getPath("userData");
+  const filePath = path.join(userDataDir, `${id}.json`);
+
+  // If it doesn't exist, throw a custom error
+  if (!syncfs.existsSync(filePath)) {
+    return
+  }
+
+  // Remove the JSON file
+  await fs.unlink(filePath);
 };
 
 const checkTitle = (title: string) => {

@@ -6,7 +6,7 @@ import Compare from "./screens/Compare";
 import Reports from "./screens/Reports";
 
 import { ReportData } from "./types";
-import { getAllReports } from "./pyHelper";
+import { getAllReports, deleteReport } from "./helper";
 
 const PersistedApp: React.FC = () => {
   const location = useLocation();
@@ -17,8 +17,17 @@ const PersistedApp: React.FC = () => {
       .then((reports: ReportData[]) => {
         setGlobalReports(reports);
       })
-      .catch((err) => {});
-  }, [globalReports]);
+      .catch((err) => console.log("Failed to fetch reports:", err));
+  }, []);
+
+  const onDeleteReport = (id: string) => {
+    deleteReport(id)
+      .then(() => {
+        console.log("deleted", id);
+        setGlobalReports((prev) => prev.filter((report) => report.id !== id));
+      })
+      .catch((err) => console.log("Failed to delete report:", err));
+  };
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -30,7 +39,7 @@ const PersistedApp: React.FC = () => {
             location.pathname === "/" ? "block w-full h-full" : "hidden"
           }
         >
-          <Upload />
+          <Upload setReports={setGlobalReports} />
         </div>
         <div
           className={
@@ -44,7 +53,11 @@ const PersistedApp: React.FC = () => {
             location.pathname === "/reports" ? "block w-full h-full" : "hidden"
           }
         >
-          <Reports reports={globalReports} onReportClick={() => {}} />
+          <Reports
+            reports={globalReports}
+            onReportClick={() => {}}
+            onDeleteReport={onDeleteReport}
+          />
         </div>
       </div>
     </div>

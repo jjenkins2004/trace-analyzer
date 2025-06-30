@@ -42,3 +42,7 @@ async function createReport(report: ReportDataInput): Promise<ReportData> {
 export async function getAllReports(): Promise<ReportData[]> {
   return await window.ipcRenderer.invoke("getReports");
 }
+
+export async function deleteReport(id: string) {
+  return await window.ipcRenderer.invoke("deleteReport", id);
+}

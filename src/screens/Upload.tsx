@@ -1,6 +1,12 @@
-import React, { useRef, DragEvent, useState } from "react";
+import React, {
+  useRef,
+  DragEvent,
+  useState,
+  Dispatch,
+  SetStateAction,
+} from "react";
 import { UploadCloud, Trash2 } from "lucide-react";
-import { processTrace } from "../pyHelper";
+import { processTrace } from "../helper";
 import {
   createError,
   Errors,
@@ -11,7 +17,11 @@ import {
 import LoadingScreen from "../components/LoadingScreen";
 import SuccessScreen from "../components/SuccessScreen";
 
-const UploadPage: React.FC = () => {
+export interface UploadProps {
+  setReports: Dispatch<SetStateAction<ReportData[]>>;
+}
+
+const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState<string>("");
   const [processing, setProcessing] = useState<boolean>(false);
@@ -56,6 +66,7 @@ const UploadPage: React.FC = () => {
     setProcessing(true);
     processTrace(file.path, title)
       .then((report: ReportData) => {
+        setReports((prev) => [report, ...prev]);
         setSuccess(true);
         console.log(report);
       })
