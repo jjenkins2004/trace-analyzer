@@ -1,15 +1,22 @@
 import time
 import os
 import sys
+from dataclasses import dataclass
 
-from density import network_density
+
+from density import network_density, DensityAnalysis
+
+
+@dataclass
+class Analysis:
+    density: DensityAnalysis
 
 
 def analyze(path: str) -> dict[str, any]:
 
-    scores = network_density(path=path)
+    density = network_density(path=path)
 
-    return scores
+    return Analysis(density=density)
 
 
 if __name__ == "__main__":

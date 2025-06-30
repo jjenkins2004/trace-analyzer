@@ -158,7 +158,7 @@ def network_density(path: str):
 
             all_bins.append(
                 Bin(
-                    devices=devices,
+                    devices=list(devices.values()),
                     total_devices_in_interval=len(devices),
                     total_frames_in_interval=total_frames,
                     avg_snr_in_interval=total_snr / (total_frames),

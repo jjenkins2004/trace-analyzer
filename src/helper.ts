@@ -1,9 +1,4 @@
-import {
-  ErrorWithCode,
-  processingResponse,
-  ReportData,
-  ReportDataInput,
-} from "./types";
+import { processingResponse, ReportData, ReportDataInput } from "./types";
 
 export async function processTrace(path: string, title: string) {
   console.log("Beginning processing with path:", path);

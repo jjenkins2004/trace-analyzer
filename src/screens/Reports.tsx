@@ -8,7 +8,11 @@ export interface ReportsProps {
   onDeleteReport: (id: string) => void;
 }
 
-const Reports: React.FC<ReportsProps> = ({ reports, onReportClick, onDeleteReport }) => {
+const Reports: React.FC<ReportsProps> = ({
+  reports,
+  onReportClick,
+  onDeleteReport,
+}) => {
   const [sortKey, setSortKey] = useState<"title" | "date">("title");
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);

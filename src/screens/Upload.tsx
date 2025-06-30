@@ -68,7 +68,6 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
       .then((report: ReportData) => {
         setReports((prev) => [report, ...prev]);
         setSuccess(true);
-        console.log(report);
       })
       .catch((error) => {
         setError(parseError(error));

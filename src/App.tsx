@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { HashRouter, useLocation } from "react-router-dom";
+import { HashRouter, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Upload from "./screens/Upload";
 import Compare from "./screens/Compare";
@@ -10,7 +10,10 @@ import { getAllReports, deleteReport } from "./helper";
 
 const PersistedApp: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
   const [globalReports, setGlobalReports] = useState<ReportData[]>([]);
+  const [shownReport, setShownReport] = useState<ReportData | null>(null);
 
   useEffect(() => {
     getAllReports()
@@ -29,11 +32,16 @@ const PersistedApp: React.FC = () => {
       .catch((err) => console.log("Failed to delete report:", err));
   };
 
+  const onReportClick = (report: ReportData) => {
+    setShownReport(report);
+    navigate("/compare");
+  };
+
   return (
     <div className="flex flex-col w-full h-full">
       <Navbar />
 
-      <div className="flex-1">
+      <div className="flex-1 overflow-y-scroll">
         <div
           className={
             location.pathname === "/" ? "block w-full h-full" : "hidden"
@@ -46,7 +54,7 @@ const PersistedApp: React.FC = () => {
             location.pathname === "/compare" ? "block w-full h-full" : "hidden"
           }
         >
-          <Compare />
+          <Compare shownReport={shownReport}/>
         </div>
         <div
           className={
@@ -55,7 +63,7 @@ const PersistedApp: React.FC = () => {
         >
           <Reports
             reports={globalReports}
-            onReportClick={() => {}}
+            onReportClick={onReportClick}
             onDeleteReport={onDeleteReport}
           />
         </div>

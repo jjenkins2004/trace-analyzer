@@ -86,7 +86,7 @@ const createReport = async (input: ReportDataInput): Promise<ReportData> => {
   }
 
   // Point electron-store at userData/<id>.json
-  const store = new Store<ReportDataInput>({
+  const store = new Store<ReportData>({
     name: id,
   });
 
