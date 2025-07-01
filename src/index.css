@@ -32,6 +32,8 @@
   /* Text colors */
   --color-text: #e5e7eb;
   --color-text-muted: #9ca3af;
+  --color-text-light-blue: #a5b4fc;
+  --color-text-light-purple: #c4b5fd;
 }
 
 @layer utilities {

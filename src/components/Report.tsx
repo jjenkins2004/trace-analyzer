@@ -4,6 +4,8 @@
 import React from "react";
 import { ReportData, Bin, DeviceInfo } from "../types";
 import {
+  BarChart,
+  Bar,
   LineChart,
   Line,
   XAxis,
@@ -15,20 +17,20 @@ import {
 } from "recharts";
 
 function getDensityColor(score: number): string {
-    if (score < 0.2) return "text-green-500";
-    if (score < 0.4) return "text-lime-400";
-    if (score < 0.6) return "text-yellow-400";
-    if (score < 0.8) return "text-orange-500";
-    return "text-red-500";
-  }
+  if (score < 0.2) return "text-green-500";
+  if (score < 0.4) return "text-lime-400";
+  if (score < 0.6) return "text-yellow-400";
+  if (score < 0.8) return "text-orange-500";
+  return "text-red-500";
+}
 
-  function getDensityText(score: number): string {
-    if (score < 0.2) return "Very Sparse";
-    if (score < 0.4) return "Sparse";
-    if (score < 0.6) return "Moderately Dense";
-    if (score < 0.8) return "Very Dense";
-    return "Extremely Dense";
-  }
+function getDensityText(score: number): string {
+  if (score < 0.2) return "Very Sparse";
+  if (score < 0.4) return "Sparse";
+  if (score < 0.6) return "Moderately Dense";
+  if (score < 0.8) return "Very Dense";
+  return "Extremely Dense";
+}
 
 export interface ReportProps {
   report: ReportData;
@@ -49,11 +51,41 @@ const Report: React.FC<ReportProps> = ({ report }) => {
     });
   }
 
+  function getFrameGraphData(): FrameGraphDataPoint[] {
+    return density.bins.map((bin, index) => {
+      // Create a copy of devices descending by frame count
+      const sorted = [...bin.devices].sort(
+        (a, b) => b.total_frames - a.total_frames
+      );
+
+      // Take up to top 3
+      const top3 = sorted.slice(0, 3);
+
+      // Create formatted string of device frame contribution
+      const topThreeDevices = top3.map((dev) => {
+        const pct = (dev.total_frames / bin.total_frames_in_interval) * 100;
+        return `${dev.sa} (${pct.toFixed(1)}%)`;
+      });
+
+      // Build the interval label
+      const interval = `${bin.start_time.toFixed(0)}s – ${bin.end_time.toFixed(
+        0
+      )}s`;
+
+      return {
+        id: index,
+        interval,
+        frames: bin.total_frames_in_interval,
+        topThreeDevices,
+      };
+    });
+  }
+
   return (
     <div className="min-h-full p-8 text-text">
       {/* Header */}
       <div className="mb-8 text-center">
-        <h1 className="text-4xl font-bold text-primary mb-2">{title}</h1>
+        <h1 className="text-4xl font-bold text-primary-light mb-2">{title}</h1>
         <p className="text-sm text-text-muted">
           Created on {new Date(date).toLocaleString()}
         </p>
@@ -61,7 +93,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
 
       {/*Bin Graph*/}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-primary mb-4">
+        <h2 className="text-2xl font-semibold text-primary-light mb-4">
           Network Density over Time
         </h2>
         <DensityGraph data={getDensityGraphData()} />
@@ -69,7 +101,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
 
       {/* Summary */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-primary mb-4">
+        <h2 className="text-2xl font-semibold text-primary-light mb-4">
           Density Analysis
         </h2>
         <div className="grid grid-cols-2 gap-6 mb-8">
@@ -86,7 +118,9 @@ const Report: React.FC<ReportProps> = ({ report }) => {
               This means your network is:
             </p>
             <p
-              className={`text-2xl font-extrabold ${getDensityColor(density.density_rating)}`}
+              className={`text-2xl font-extrabold ${getDensityColor(
+                density.density_rating
+              )}`}
             >{`${getDensityText(density.density_rating)}`}</p>
           </div>
         </div>
@@ -110,8 +144,11 @@ const Report: React.FC<ReportProps> = ({ report }) => {
         </div>
       </section>
 
-      <section>
-        <FrameGraph data={getDensityGraphData()} />
+      <section className="mb-12">
+        <h2 className="text-2xl font-semibold text-primary-light mb-4">
+          Frames Captured
+        </h2>
+        <FrameGraph data={getFrameGraphData()} />
       </section>
     </div>
   );
@@ -140,8 +177,8 @@ const DensityGraph: React.FC<DensityGraphProps> = ({ data }) => {
     const data = payload[0].payload;
 
     return (
-      <div className="bg-gray-800 text-white text-sm p-3 rounded shadow-lg">
-        <div className="font-medium text-indigo-300">
+      <div className="bg-background text-text text-sm p-3 rounded shadow-lg">
+        <div className="font-medium text-text-light-blue">
           Interval: {data.startTime.toFixed(1)}s – {data.endTime.toFixed(1)}s
         </div>
         <div>
@@ -172,7 +209,7 @@ const DensityGraph: React.FC<DensityGraphProps> = ({ data }) => {
           <Line
             type="monotone"
             dataKey="value"
-            stroke="#4f46e5" // Indigo-600
+            stroke="#4f46e5"
             strokeWidth={2}
             dot={{ r: 3 }}
             activeDot={{ r: 6 }}
@@ -185,10 +222,9 @@ const DensityGraph: React.FC<DensityGraphProps> = ({ data }) => {
 
 interface FrameGraphDataPoint {
   id: number;
-  startTime: number;
-  endTime: number;
-  timestamp: number;
-  value: number;
+  interval: string;
+  frames: number;
+  topThreeDevices: string[];
 }
 
 interface FrameGraphProps {
@@ -199,51 +235,45 @@ const FrameGraph: React.FC<FrameGraphProps> = ({ data }) => {
   const CustomTooltip: React.FC<TooltipContentProps<number, string>> = ({
     active,
     payload,
-    label,
   }) => {
     if (!active || !payload || !payload.length) return null;
 
-    const data = payload[0].payload;
+    const point = payload[0].payload as FrameGraphDataPoint;
 
     return (
-      <div className="bg-gray-800 text-white text-sm p-3 rounded shadow-lg">
-        <div className="font-medium text-indigo-300">
-          Interval: {data.startTime.toFixed(1)}s – {data.endTime.toFixed(1)}s
-        </div>
+      <div className="bg-gray-800 text-text text-sm p-3 rounded shadow-lg space-y-2">
+        <div className="font-medium text-text-light-blue">{`${point.interval}`}</div>
         <div>
-          Density Score:{" "}
-          <span className="font-semibold text-red-400">
-            {data.value.toPrecision(2)}
-          </span>
+          <span className="font-semibold">Total Frames:</span>{" "}
+          <span className="">{point.frames}</span>
         </div>
+        <div className="font-semibold">Received Most Frames From:</div>
+        <ul className="list-disc list-inside pl-4">
+          {point.topThreeDevices.map((dev, i) => (
+            <li key={i}>{dev}</li>
+          ))}
+        </ul>
       </div>
     );
   };
 
   return (
-    <div style={{ width: "100%", height: 300 }}>
-      <ResponsiveContainer>
-        <LineChart data={data}>
-          <CartesianGrid stroke="#444" strokeDasharray="3 3" />
-          <XAxis
-            dataKey="id"
-            type="number"
-            scale="linear"
-            domain={[0, "dataMax"]}
-            tickFormatter={(id) => `${data[id].timestamp.toFixed(1)}`}
-          />
+    <div className="w-full h-80 p-4 rounded-lg shadow">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          margin={{ top: 10, right: 20, bottom: 20, left: 0 }}
+        >
+          <XAxis dataKey="interval" />
           <YAxis />
           <Tooltip content={CustomTooltip} />
-
-          <Line
-            type="monotone"
-            dataKey="value"
-            stroke="#4f46e5" // Indigo-600
-            strokeWidth={2}
-            dot={{ r: 3 }}
-            activeDot={{ r: 6 }}
+          <Bar
+            dataKey="frames"
+            fill="#4f46e5"
+            radius={[4, 4, 0, 0]}
+            barSize={24}
           />
-        </LineChart>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
