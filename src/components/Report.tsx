@@ -34,6 +34,10 @@ const Report: React.FC<ReportProps> = ({ report }) => {
 
   return (
     <div className="min-h-full p-8 text-text">
+      {/*Report summary*/}
+      <section></section>
+
+      {/*Bin Graph*/}
       <section>
         <BinGraph data={getBinGraphData()} interval={density.interval} />
       </section>
