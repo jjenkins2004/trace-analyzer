@@ -34,6 +34,7 @@
   --color-text-muted: #9ca3af;
   --color-text-light-blue: #a5b4fc;
   --color-text-light-purple: #c4b5fd;
+  --color-text-green-muted: #8A9A91
 }
 
 @layer utilities {

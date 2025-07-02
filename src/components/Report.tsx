@@ -46,6 +46,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
         startTime: bin.start_time,
         endTime: bin.end_time,
         timestamp: bin.start_time + (bin.end_time - bin.start_time) / 2,
+        averageSNR: bin.avg_snr_in_interval,
         value: bin.density_rating_in_interval,
       } as DensityDataPoint;
     });
@@ -77,6 +78,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
         interval,
         frames: bin.total_frames_in_interval,
         topThreeDevices,
+        devices: bin.total_devices_in_interval,
       };
     });
   }
@@ -161,6 +163,7 @@ interface DensityDataPoint {
   startTime: number;
   endTime: number;
   timestamp: number;
+  averageSNR: number;
   value: number;
 }
 
@@ -177,15 +180,19 @@ const DensityGraph: React.FC<DensityGraphProps> = ({ data }) => {
     const data = payload[0].payload;
 
     return (
-      <div className="bg-background text-text text-sm p-3 rounded shadow-lg">
+      <div className="bg-background text-text-muted text-sm p-3 rounded shadow-lg flex flex-col gap-1.5">
         <div className="font-medium text-text-light-blue">
-          Interval: {data.startTime.toFixed(1)}s – {data.endTime.toFixed(1)}s
+          {data.startTime.toFixed(1)}s – {data.endTime.toFixed(1)}s
         </div>
         <div>
           Density Score:{" "}
-          <span className={`font-semibold ${getDensityColor(data.value)}`}>
+          <span className={`font-bold ${getDensityColor(data.value)}`}>
             {data.value.toPrecision(2)}
           </span>
+        </div>
+        <div className="font-extralight text-xs">
+          Average SNR:{" "}
+          <span className="text-text"> {data.averageSNR.toFixed(1)}</span>
         </div>
       </div>
     );
@@ -225,6 +232,7 @@ interface FrameGraphDataPoint {
   interval: string;
   frames: number;
   topThreeDevices: string[];
+  devices: number;
 }
 
 interface FrameGraphProps {
@@ -241,18 +249,24 @@ const FrameGraph: React.FC<FrameGraphProps> = ({ data }) => {
     const point = payload[0].payload as FrameGraphDataPoint;
 
     return (
-      <div className="bg-gray-800 text-text text-sm p-3 rounded shadow-lg space-y-2">
-        <div className="font-medium text-text-light-blue">{`${point.interval}`}</div>
-        <div>
-          <span className="font-semibold">Total Frames:</span>{" "}
-          <span className="">{point.frames}</span>
+      <div className="bg-gray-800 text-text-muted text-sm p-3 rounded shadow-lg">
+        <div className="font-medium text-text-light-blue mb-2">{`${point.interval}`}</div>
+        <div className="mb-0.5">
+          <span className="font-semibold">Frames:</span>{" "}
+          <span className="text-text-light-purple">{point.frames}</span>
         </div>
-        <div className="font-semibold">Received Most Frames From:</div>
-        <ul className="list-disc list-inside pl-4">
-          {point.topThreeDevices.map((dev, i) => (
-            <li key={i}>{dev}</li>
-          ))}
-        </ul>
+        <div className="mb-2">
+          <span className="font-semibold">Devices:</span>{" "}
+          <span className="text-text-light-purple">{point.devices}</span>
+        </div>
+        <div className="text-xs">
+          <div className="font-semibold">Received Most Frames From:</div>
+          <ul className="list-disc list-inside pl-4 marker:text-text-green-muted">
+            {point.topThreeDevices.map((dev, i) => (
+              <li key={i}>{dev}</li>
+            ))}
+          </ul>
+        </div>
       </div>
     );
   };
