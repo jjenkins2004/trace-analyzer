@@ -2,7 +2,7 @@
 // React component to display a full report based on ReportData, using Tailwind CSS.
 
 import React from "react";
-import { ReportData, Bin, DeviceInfo } from "../types";
+import { ReportData, DeviceInfo } from "../types";
 import {
   BarChart,
   Bar,
@@ -83,6 +83,61 @@ const Report: React.FC<ReportProps> = ({ report }) => {
     });
   }
 
+  interface DeviceDisplayInfo {
+    sa: string;
+    total_frames: number;
+    total_snr: number;
+    mostActiveInterval: string;
+  }
+
+  function getTop5Devices(): DeviceDisplayInfo[] {
+    // Find total SNR and total frames from every existing device in all time intervals
+    const agg = new Map<string, DeviceInfo>();
+    for (const bin of density.bins) {
+      for (const dev of bin.devices) {
+        if (!agg.has(dev.sa)) {
+          agg.set(dev.sa, { ...dev });
+        } else {
+          const existing = agg.get(dev.sa)!;
+          existing.total_frames += dev.total_frames;
+          existing.total_snr += dev.total_snr;
+        }
+      }
+    }
+
+    // Sort descending by total_frames and slice top 5
+    const top5 = Array.from(agg.values())
+      .sort((a, b) => b.total_frames - a.total_frames)
+      .slice(0, 5);
+
+    // Create our 5 devices
+    return top5.map((dev) => {
+      // find the bin where this device had its max frames
+      let bestBin = density.bins[0];
+      let maxFrames = -Infinity;
+
+      for (const bin of density.bins) {
+        const d = bin.devices.find((d) => d.sa === dev.sa);
+        if (d && d.total_frames > maxFrames) {
+          maxFrames = d.total_frames;
+          bestBin = bin;
+        }
+      }
+
+      // format interval string
+      const mostActiveInterval = `${bestBin.start_time.toFixed(
+        0
+      )}s – ${bestBin.end_time.toFixed(0)}s`;
+
+      return {
+        sa: dev.sa,
+        total_frames: dev.total_frames,
+        total_snr: dev.total_snr,
+        mostActiveInterval,
+      };
+    });
+  }
+
   return (
     <div className="min-h-full p-8 text-text">
       {/* Header */}
@@ -146,11 +201,62 @@ const Report: React.FC<ReportProps> = ({ report }) => {
         </div>
       </section>
 
+      {/*Frames Data*/}
       <section className="mb-12">
         <h2 className="text-2xl font-semibold text-primary-light mb-4">
           Frames Captured
         </h2>
         <FrameGraph data={getFrameGraphData()} />
+      </section>
+
+      {/* Top 5 Devices */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-semibold text-primary-light mb-4">
+          Top Devices
+        </h2>
+        <div className="overflow-x-auto bg-background-dark rounded-lg">
+          <table className="min-w-full divide-y divide-background">
+            <thead>
+              <tr className="bg-background">
+                <th className="px-4 py-2 text-left text-sm font-medium text-text-muted">
+                  Source Address
+                </th>
+                <th className="px-4 py-2 text-right text-sm font-medium text-text-muted">
+                  Total Frames
+                </th>
+                <th className="px-4 py-2 text-right text-sm font-medium text-text-muted">
+                  Avg SNR per Frame
+                </th>
+                <th className="px-4 py-2 text-right text-sm font-medium text-text-muted">
+                  Most Active During
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-background-dark">
+              {getTop5Devices().map((dev) => {
+                const avgSnr = dev.total_frames
+                  ? (dev.total_snr / dev.total_frames).toFixed(2)
+                  : "—";
+                return (
+                  <tr key={dev.sa}>
+                    <td className="px-4 py-3 text-sm font-medium text-text">
+                      {dev.sa}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-text">
+                      {dev.total_frames}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-text">
+                      {avgSnr}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-text">
+                      {dev.mostActiveInterval}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );
