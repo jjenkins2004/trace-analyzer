@@ -248,46 +248,41 @@ def extract(path: str) -> list[BeaconFrame]:
 
     # Extract relevant data
     try:
-        # Add the first packet back into the iterator chain
         for pkt in cap:
-            try:
-                if first:
-                    start_time = float(pkt.sniff_timestamp)
-                    first = False
-                # Source Address, same as BSSID for APs
-                sa = pkt.wlan.sa
+            if first:
+                start_time = float(pkt.sniff_timestamp)
+                first = False
+            # Source Address, same as BSSID for APs
+            sa = pkt.wlan.sa
 
-                radio = pkt.wlan_radio
+            radio = pkt.wlan_radio
 
-                # Type/Subtype (e.g. “0x08” for beacon)
-                protocol = radio.phy
+            # Wifi protocol
+            protocol = radio.phy
 
-                # RSSI (dBm_AntSignal)
-                rssi = float(radio.signal_dbm)
+            # RSSI
+            rssi = float(radio.signal_dbm)
 
-                # Noise (dBm_AntNoise) -> compute SNR
-                noise = float(radio.noise_dbm)
-                snr = rssi - noise
+            # Noise -> compute SNR
+            noise = float(radio.noise_dbm)
+            snr = rssi - noise
 
-                timestamp = float(pkt.sniff_timestamp) - start_time
+            timestamp = float(pkt.sniff_timestamp) - start_time
 
-                frames.append(
-                    BeaconFrame(
-                        sa=sa,
-                        # type=(
-                        #     DeviceType.ACCESS_POINT
-                        #     if int(pkt.wlan.type_subtype, 16) == 8
-                        #     else DeviceType.CLIENT
-                        # ),
-                        protocol=protocol,
-                        rssi=rssi,
-                        snr=snr,
-                        timestamp=timestamp,
-                    )
+            frames.append(
+                BeaconFrame(
+                    sa=sa,
+                    # type=(
+                    #     DeviceType.ACCESS_POINT
+                    #     if int(pkt.wlan.type_subtype, 16) == 8
+                    #     else DeviceType.CLIENT
+                    # ),
+                    protocol=protocol,
+                    rssi=rssi,
+                    snr=snr,
+                    timestamp=timestamp,
                 )
-            except (AttributeError, ValueError) as e:
-                print(e)
-                return
+            )
 
         # Ensure results are sorted by timestamp
         frames.sort(key=lambda f: f.timestamp)
