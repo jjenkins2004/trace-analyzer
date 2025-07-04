@@ -1,15 +1,18 @@
 import pyshark
 from pyshark.capture.capture import TSharkCrashException
 from dataclasses import dataclass
+from collections import deque
+from statistics import mean
 
 
 @dataclass
 class DownlinkFrame:
     rssi: float
     data_rate: float
-    retry: bool
+    retry: int
     protocol: str
     timestamp: float
+
 
 @dataclass
 class SlidingWindowPoint:
@@ -19,13 +22,13 @@ class SlidingWindowPoint:
     retry_rate: float
     throughput: float
 
+
 @dataclass
 class DownlinkThroughput:
     avg_rssi: float
     avg_retry: float
     avg_througput: float
     points: list[SlidingWindowPoint]
-
 
 
 def wifi_throughput(path: str, ap_mac: str, host_mac: str):
@@ -36,13 +39,55 @@ def wifi_throughput(path: str, ap_mac: str, host_mac: str):
     # Quit here if no frames were extracted
     if not frames:
         raise ValueError("No frames extracted")
-    
-    return frames
 
-    pass
+    throughput = compute_downlink_throughput(frames=frames)
+    return throughput
 
 
-def extract(path: str, ap_mac: str, host_mac: str):
+def compute_downlink_throughput(
+    frames: list[DownlinkFrame], window_size: int = 50
+) -> DownlinkThroughput:
+
+    buf: deque[DownlinkFrame] = deque(maxlen=window_size)
+    points: list[SlidingWindowPoint] = []
+
+    for f in frames:
+        buf.append(f)
+        # wait until buffer is full
+        if len(buf) < window_size:
+            continue
+
+        # compute the sliding‐window stats
+        rel_ts = f.timestamp
+        avg_rssi = mean(frame.rssi for frame in buf)
+        avg_data_rate = mean(frame.data_rate for frame in buf)
+        retry_rate = sum(frame.retry for frame in buf) / window_size
+        tp = avg_data_rate * (1 - retry_rate)
+
+        points.append(
+            SlidingWindowPoint(
+                timestamp=rel_ts,
+                rssi=avg_rssi,
+                data_rate=avg_data_rate,
+                retry_rate=retry_rate,
+                throughput=tp,
+            )
+        )
+
+    # overall averages (over entire trace / full windows)
+    avg_rssi_all = mean(f.rssi for f in frames)
+    avg_retry_all = sum(f.retry for f in frames) / len(frames)
+    avg_tp_all = mean(p.throughput for p in points) if points else 0.0
+
+    return DownlinkThroughput(
+        avg_rssi=avg_rssi_all,
+        avg_retry=avg_retry_all,
+        avg_througput=avg_tp_all,
+        points=points,
+    )
+
+
+def extract(path: str, ap_mac: str, host_mac: str) -> list[DownlinkFrame]:
     # Load data frames and probe requests into memory
     cap = pyshark.FileCapture(
         path,
@@ -62,7 +107,7 @@ def extract(path: str, ap_mac: str, host_mac: str):
             if first:
                 start_time = float(pkt.sniff_timestamp)
                 first = False
-            
+
             radio = pkt.wlan_radio
 
             # Wifi protocol
@@ -75,7 +120,7 @@ def extract(path: str, ap_mac: str, host_mac: str):
             data_rate = float(radio.data_rate)
 
             # Retry flag
-            retry = pkt.wlan.fc_tree.flags_tree.retry
+            retry = int(pkt.wlan.fc_tree.flags_tree.retry)
 
             timestamp = float(pkt.sniff_timestamp) - start_time
 
