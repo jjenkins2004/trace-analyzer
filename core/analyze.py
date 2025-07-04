@@ -11,16 +11,16 @@ from throughput import wifi_throughput
 @dataclass
 class Analysis:
     density: DensityAnalysis
-    throughput: any
+    #throughput: any
 
 
-def analyze(path: str, ap_mac: str, host_mac: str) -> dict[str, any]:
+def analyze(path: str) -> dict[str, any]:
 
-    # density = network_density(path=path)
+    density = network_density(path=path)
 
-    throughput = wifi_throughput(path=path, ap_mac=ap_mac, host_mac=host_mac)
+    # throughput = wifi_throughput(path=path, ap_mac=ap_mac, host_mac=host_mac)
 
-    return Analysis(density= None, throughput=throughput)
+    return Analysis(density= density)
 
 
 if __name__ == "__main__":

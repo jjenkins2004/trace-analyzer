@@ -59,7 +59,7 @@ export interface processingResponse {
 export interface DeviceInfo {
   sa: string;
   total_frames: number;
-  total_snr: number;
+  total_rssi: number;
   score: number;
 }
 
@@ -67,7 +67,7 @@ export interface Bin {
   devices: DeviceInfo[];
   total_devices_in_interval: number;
   total_frames_in_interval: number;
-  avg_snr_in_interval: number;
+  avg_rssi_in_interval: number;
   density_rating_in_interval: number;
   start_time: number;
   end_time: number;
@@ -78,7 +78,7 @@ export interface DensityAnalysis {
   bins: Bin[];
   total_devices: number;
   total_frames: number;
-  avg_snr: number;
+  avg_rssi: number;
   density_rating: number;
 }
 

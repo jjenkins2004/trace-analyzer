@@ -46,7 +46,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
         startTime: bin.start_time,
         endTime: bin.end_time,
         timestamp: bin.start_time + (bin.end_time - bin.start_time) / 2,
-        averageSNR: bin.avg_snr_in_interval,
+        averageRSSI: bin.avg_rssi_in_interval,
         value: bin.density_rating_in_interval,
       } as DensityDataPoint;
     });
@@ -86,7 +86,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
   interface DeviceDisplayInfo {
     sa: string;
     total_frames: number;
-    total_snr: number;
+    total_rssi: number;
     mostActiveInterval: string;
   }
 
@@ -100,7 +100,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
         } else {
           const existing = agg.get(dev.sa)!;
           existing.total_frames += dev.total_frames;
-          existing.total_snr += dev.total_snr;
+          existing.total_rssi += dev.total_rssi;
         }
       }
     }
@@ -132,7 +132,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
       return {
         sa: dev.sa,
         total_frames: dev.total_frames,
-        total_snr: dev.total_snr,
+        total_rssi: dev.total_rssi,
         mostActiveInterval,
       };
     });
@@ -196,7 +196,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
           </div>
           <div className="bg-background-dark p-4 rounded-lg">
             <p className="text-sm text-text-muted">Avg SNR</p>
-            <p className="text-xl font-medium">{density.avg_snr.toFixed(2)}</p>
+            <p className="text-xl font-medium">{density.avg_rssi.toFixed(2)}</p>
           </div>
         </div>
       </section>
@@ -234,8 +234,8 @@ const Report: React.FC<ReportProps> = ({ report }) => {
             </thead>
             <tbody className="divide-y divide-background-dark">
               {getTop5Devices().map((dev) => {
-                const avgSnr = dev.total_frames
-                  ? (dev.total_snr / dev.total_frames).toFixed(2)
+                const avgRssi = dev.total_frames
+                  ? (dev.total_rssi / dev.total_frames).toFixed(2)
                   : "—";
                 return (
                   <tr key={dev.sa}>
@@ -246,7 +246,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
                       {dev.total_frames}
                     </td>
                     <td className="px-4 py-3 text-sm text-right text-text">
-                      {avgSnr}
+                      {avgRssi}
                     </td>
                     <td className="px-4 py-3 text-sm text-right text-text">
                       {dev.mostActiveInterval}
@@ -269,7 +269,7 @@ interface DensityDataPoint {
   startTime: number;
   endTime: number;
   timestamp: number;
-  averageSNR: number;
+  averageRSSI: number;
   value: number;
 }
 
@@ -297,8 +297,8 @@ const DensityGraph: React.FC<DensityGraphProps> = ({ data }) => {
           </span>
         </div>
         <div className="font-extralight text-xs">
-          Average SNR:{" "}
-          <span className="text-text"> {data.averageSNR.toFixed(1)}</span>
+          Average RSSI:{" "}
+          <span className="text-text"> {data.averageRSSI.toFixed(1)}</span>
         </div>
       </div>
     );
