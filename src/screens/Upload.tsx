@@ -6,7 +6,7 @@ import React, {
   SetStateAction,
 } from "react";
 import { UploadCloud, Trash2 } from "lucide-react";
-import { createDensityReport } from "../helper";
+import { createDensityReport, createThroughputReport } from "../helper";
 import {
   createError,
   Errors,
@@ -62,24 +62,51 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
 
   const upload = () => {
     if (!file) return;
-    if (title == "") {
+    if (title === "") {
       setError(createError("Provide a report title!", Errors.NO_TITLE));
       setTimeout(() => setError(null), 5000);
       return;
     }
+    if (reportType === Process.DENSITY) {
+      handleReportPromise(createDensityReport(file.path, title));
+      setProcessing(true);
+    } else {
+      if (apMac === "") {
+        setError(
+          createError("Provide an access point MAC address!", Errors.NO_AP)
+        );
+        setTimeout(() => setError(null), 5000);
+        return;
+      }
+      if (hostMac === "") {
+        setError(createError("Provide a host MAC address!", Errors.NO_HOST));
+        setTimeout(() => setError(null), 5000);
+        return;
+      }
+      console.log("creating report!");
+      return;
+      handleReportPromise(
+        createThroughputReport(file.path, apMac, hostMac, title)
+      );
+      setProcessing(true);
+    }
+  };
+
+  function handleReportPromise(p: Promise<ReportData>) {
     setProcessing(true);
-    createDensityReport(file.path, title)
-      .then((report: ReportData) => {
+
+    return p
+      .then((report) => {
         setReports((prev) => [report, ...prev]);
         setSuccess(true);
       })
-      .catch((error) => {
-        setError(parseError(error));
+      .catch((err) => {
+        setError(parseError(err));
       })
       .finally(() => {
         setProcessing(false);
       });
-  };
+  }
 
   if (processing) {
     return <LoadingScreen text="Processing trace…" />;
@@ -107,7 +134,7 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
         {/* File uploader */}
         {!file && (
           <div
-            className="w-full max-w-md p-6 border-2 border-dashed border-gray-600 rounded-lg text-center text-gray-400 hover:border-gray-400 cursor-pointer"
+            className="w-full max-w-md m-auto p-6 border-2 border-dashed border-gray-600 rounded-lg text-center text-gray-400 hover:border-gray-400 cursor-pointer"
             onClick={onSelectClick}
             onDragOver={(e) => e.preventDefault()}
             onDrop={onDrop}
@@ -179,8 +206,8 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
             </div>
 
             {/* Title input */}
-            <div className="mt-8 space-y-2 w-md">
-              <label className="block text-sm font-medium text-gray-300">
+            <div className="mt-8 w-md mb-4">
+              <label className="block mb-2 text-sm font-medium text-gray-300">
                 Report Title
               </label>
               <input
@@ -197,7 +224,7 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
                 }`}
               />
               <p
-                className={`h-5 text-sm text-red-500 pt-1 transition-opacity duration-400 ease-in-out ${
+                className={`h-5 text-sm text-red-500 pt-0.5 transition-opacity duration-400 ease-in-out ${
                   error &&
                   (error.code === Errors.NO_TITLE ||
                     error.code === Errors.TITLE_EXITST)
@@ -213,11 +240,11 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
               </p>
             </div>
 
-            {/* Throughput-specific fields */}
             {reportType === Process.THROUGHPUT && (
               <div className="space-y-4 w-md">
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-300">
+                {/* AP MAC Address */}
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-300">
                     Access Point MAC Address
                   </label>
                   <input
@@ -225,11 +252,24 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
                     value={apMac}
                     onChange={(e) => setApMac(e.target.value)}
                     placeholder="e.g. 00:11:22:33:44:55"
-                    className="w-full px-4 py-2 bg-gray-800 text-gray-100 placeholder-gray-500 border-gray-600 rounded-lg focus:outline-none focus:ring-blue-500"
+                    className={`w-full px-4 py-2 bg-gray-800 text-gray-100 placeholder-gray-500 border-2 rounded-lg focus:outline-none transition-colors duration-400 ease-out ${
+                      error?.code === Errors.NO_AP
+                        ? "border-red-500 focus:ring-red-500 animate-shake"
+                        : "border-gray-600 focus:ring-blue-500"
+                    }`}
                   />
+                  <p
+                    className={`h-5 text-sm text-red-500 pt-0.5 transition-opacity duration-400 ease-in-out ${
+                      error?.code === Errors.NO_AP ? "opacity-100" : "opacity-0"
+                    }`}
+                  >
+                    {error?.code === Errors.NO_AP ? error.message : ""}
+                  </p>
                 </div>
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-300">
+
+                {/* Host MAC Address */}
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-300">
                     Host MAC Address
                   </label>
                   <input
@@ -237,8 +277,21 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
                     value={hostMac}
                     onChange={(e) => setHostMac(e.target.value)}
                     placeholder="e.g. AA:BB:CC:DD:EE:FF"
-                    className="w-full px-4 py-2 bg-gray-800 text-gray-100 placeholder-gray-500 border-gray-600 rounded-lg focus:outline-none focus:ring-blue-500"
+                    className={`w-full px-4 py-2 bg-gray-800 text-gray-100 placeholder-gray-500 border-2 rounded-lg focus:outline-none transition-colors duration-400 ease-out ${
+                      error?.code === Errors.NO_HOST
+                        ? "border-red-500 focus:ring-red-500 animate-shake"
+                        : "border-gray-600 focus:ring-blue-500"
+                    }`}
                   />
+                  <p
+                    className={`h-5 text-sm text-red-500 pt-0.5 transition-opacity duration-400 ease-in-out ${
+                      error?.code === Errors.NO_HOST
+                        ? "opacity-100"
+                        : "opacity-0"
+                    }`}
+                  >
+                    {error?.code === Errors.NO_HOST ? error.message : ""}
+                  </p>
                 </div>
               </div>
             )}
@@ -262,7 +315,9 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
               {/* Display non-title errors */}
               {error &&
                 error.code !== Errors.NO_TITLE &&
-                error.code !== Errors.TITLE_EXITST && (
+                error.code !== Errors.TITLE_EXITST &&
+                error.code !== Errors.NO_AP &&
+                error.code !== Errors.NO_HOST && (
                   <p className="mt-4 text-sm text-red-500">
                     {error.code === Errors.PROCESSING_ERROR
                       ? "An error occurred while processing the trace."

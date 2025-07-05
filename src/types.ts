@@ -13,6 +13,8 @@ export interface Payload {
 export enum Errors {
   TITLE_EXITST,
   NO_TITLE,
+  NO_HOST,
+  NO_AP,
   PROCESSING_ERROR,
   UNKNOWN,
 }
@@ -65,16 +67,18 @@ export function createError(message: string, code: Errors): ErrorWithCode {
 }
 
 export interface ThroughputProcessingResponse {
-  type: Process.THROUGHPUT
-  data: ThroughputAnalysis
+  type: Process.THROUGHPUT;
+  data: ThroughputAnalysis;
 }
 
 export interface DensityProcessingResponse {
-  type: Process.DENSITY
-  data: DensityAnalysis
+  type: Process.DENSITY;
+  data: DensityAnalysis;
 }
 
-export type ProcessingResponse = ThroughputProcessingResponse | DensityProcessingResponse
+export type ProcessingResponse =
+  | ThroughputProcessingResponse
+  | DensityProcessingResponse;
 
 export interface DeviceInfo {
   sa: string;
