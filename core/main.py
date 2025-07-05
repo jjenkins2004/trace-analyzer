@@ -23,6 +23,8 @@ def main():
             else:
                 result = analyze_density(path=data["path"])
             out = asdict(result)
+        except ValueError:
+            out = {"error": str(traceback.format_exc), "code": "NO_FRAMES"}
         except Exception:
             # Catch all errors, and create our custom response for it
             out = {"error": str(traceback.format_exc())}

@@ -39,8 +39,8 @@ if __name__ == "__main__":
 
     result = analyze_throughput(
         path="test_pcap/throughput-test.pcap",
-        ap_mac="2C:F8:9B:DD:06:A0",
-        host_mac="00:20:A6:FC:B0:36",
+        ap="2C:F8:9B:DD:06:A0",
+        host="00:20:A6:FC:B0:36",
     )
 
     pprint.pprint(result, width=80)

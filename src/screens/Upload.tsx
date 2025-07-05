@@ -54,6 +54,10 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
 
   const removeFile = () => {
     setFile(null);
+    setError(null);
+    setTitle("");
+    setApMac("");
+    setHostMac("");
     if (inputRef.current) {
       // clear the browser’s file picker value
       inputRef.current.value = "";
@@ -68,27 +72,26 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
       return;
     }
     if (reportType === Process.DENSITY) {
-      handleReportPromise(createDensityReport(file.path, title));
       setProcessing(true);
+      handleReportPromise(createDensityReport(file.path, title));
     } else {
-      if (apMac === "") {
+      if (apMac.length != 17) {
         setError(
-          createError("Provide an access point MAC address!", Errors.NO_AP)
+          createError("Provide a valid access point MAC address!", Errors.NO_AP)
         );
         setTimeout(() => setError(null), 5000);
         return;
       }
-      if (hostMac === "") {
-        setError(createError("Provide a host MAC address!", Errors.NO_HOST));
+      if (hostMac.length != 17) {
+        setError(createError("Provide a valid host MAC address!", Errors.NO_HOST));
         setTimeout(() => setError(null), 5000);
         return;
       }
       console.log("creating report!");
-      return;
+      setProcessing(true);
       handleReportPromise(
         createThroughputReport(file.path, apMac, hostMac, title)
       );
-      setProcessing(true);
     }
   };
 
@@ -97,6 +100,7 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
 
     return p
       .then((report) => {
+        console.log(report);
         setReports((prev) => [report, ...prev]);
         setSuccess(true);
       })
@@ -106,6 +110,16 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
       .finally(() => {
         setProcessing(false);
       });
+  }
+
+  function formatMacAddress(raw: string) {
+    // 1. Strip non-hex chars
+    const hex = raw
+      .replace(/[^0-9A-Fa-f]/g, "")
+      .toUpperCase()
+      .slice(0, 12);
+    // 2. Split into ['AA','BB',…] and join with ':'
+    return hex.match(/.{1,2}/g)?.join(":") ?? hex;
   }
 
   if (processing) {
@@ -240,6 +254,7 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
               </p>
             </div>
 
+            {/* Additional Fields only for Throughput Report*/}
             {reportType === Process.THROUGHPUT && (
               <div className="space-y-4 w-md">
                 {/* AP MAC Address */}
@@ -250,8 +265,13 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
                   <input
                     type="text"
                     value={apMac}
-                    onChange={(e) => setApMac(e.target.value)}
-                    placeholder="e.g. 00:11:22:33:44:55"
+                    onChange={(e) => setApMac(formatMacAddress(e.target.value))}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasted = e.clipboardData.getData("text");
+                      setApMac(formatMacAddress(pasted));
+                    }}
+                    placeholder="00:11:22:33:44:55"
                     className={`w-full px-4 py-2 bg-gray-800 text-gray-100 placeholder-gray-500 border-2 rounded-lg focus:outline-none transition-colors duration-400 ease-out ${
                       error?.code === Errors.NO_AP
                         ? "border-red-500 focus:ring-red-500 animate-shake"
@@ -275,8 +295,13 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
                   <input
                     type="text"
                     value={hostMac}
-                    onChange={(e) => setHostMac(e.target.value)}
-                    placeholder="e.g. AA:BB:CC:DD:EE:FF"
+                    onChange={(e) => setHostMac(formatMacAddress(e.target.value))}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasted = e.clipboardData.getData("text");
+                      setHostMac(formatMacAddress(pasted));
+                    }}
+                    placeholder="AA:BB:CC:DD:EE:FF"
                     className={`w-full px-4 py-2 bg-gray-800 text-gray-100 placeholder-gray-500 border-2 rounded-lg focus:outline-none transition-colors duration-400 ease-out ${
                       error?.code === Errors.NO_HOST
                         ? "border-red-500 focus:ring-red-500 animate-shake"
@@ -319,7 +344,9 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
                 error.code !== Errors.NO_AP &&
                 error.code !== Errors.NO_HOST && (
                   <p className="mt-4 text-sm text-red-500">
-                    {error.code === Errors.PROCESSING_ERROR
+                    {error.code === Errors.NO_DATA
+                      ? "Could not find frames with given parameters."
+                      : error.code === Errors.PROCESSING_ERROR
                       ? "An error occurred while processing the trace."
                       : error.code === Errors.UNKNOWN
                       ? "An unknown error occurred."

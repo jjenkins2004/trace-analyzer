@@ -15,6 +15,7 @@ export enum Errors {
   NO_TITLE,
   NO_HOST,
   NO_AP,
+  NO_DATA,
   PROCESSING_ERROR,
   UNKNOWN,
 }

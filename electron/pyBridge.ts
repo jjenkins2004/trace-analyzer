@@ -7,7 +7,7 @@ import { ipcMain } from "electron";
 import {
   createError,
   Errors,
-  processingResponse,
+  ProcessingResponse,
   serializeError,
 } from "../src/types";
 
@@ -57,9 +57,12 @@ export async function request(payload: object) {
         );
       }
       if (msg.error) {
+        if (msg.code && msg.code == "NO_FRAMES") {
+          reject(createError(msg.error, Errors.NO_DATA));
+        }
         reject(createError(msg.error, Errors.PROCESSING_ERROR));
       } else {
-        resolve(msg as processingResponse);
+        resolve(msg as ProcessingResponse);
       }
     };
 
