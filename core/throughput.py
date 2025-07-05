@@ -24,7 +24,9 @@ class SlidingWindowPoint:
 
 
 @dataclass
-class DownlinkThroughput:
+class ThroughputAnalysis:
+    source_ap: str
+    dest_host: str
     avg_rssi: float
     avg_retry: float
     avg_througput: float
@@ -41,12 +43,14 @@ def wifi_throughput(path: str, ap_mac: str, host_mac: str):
         raise ValueError("No frames extracted")
 
     throughput = compute_downlink_throughput(frames=frames)
+    throughput.source_ap=ap_mac
+    throughput.dest_host=host_mac
     return throughput
 
 
 def compute_downlink_throughput(
     frames: list[DownlinkFrame], window_size: int = 50
-) -> DownlinkThroughput:
+) -> ThroughputAnalysis:
 
     buf: deque[DownlinkFrame] = deque(maxlen=window_size)
     points: list[SlidingWindowPoint] = []
@@ -79,7 +83,9 @@ def compute_downlink_throughput(
     avg_retry_all = sum(f.retry for f in frames) / len(frames)
     avg_tp_all = mean(p.throughput for p in points) if points else 0.0
 
-    return DownlinkThroughput(
+    return ThroughputAnalysis(
+        source_ap="",
+        dest_host="",
         avg_rssi=avg_rssi_all,
         avg_retry=avg_retry_all,
         avg_througput=avg_tp_all,

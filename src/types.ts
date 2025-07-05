@@ -1,3 +1,15 @@
+export enum Process {
+  THROUGHPUT = "THROUGHPUT",
+  DENSITY = "DENSITY",
+}
+
+export interface Payload {
+  process: Process;
+  path: string;
+  ap: string | null;
+  host: string | null;
+}
+
 export enum Errors {
   TITLE_EXITST,
   NO_TITLE,
@@ -52,9 +64,17 @@ export function createError(message: string, code: Errors): ErrorWithCode {
   return err;
 }
 
-export interface processingResponse {
-  density: DensityAnalysis;
+export interface ThroughputProcessingResponse {
+  type: Process.THROUGHPUT
+  data: ThroughputAnalysis
 }
+
+export interface DensityProcessingResponse {
+  type: Process.DENSITY
+  data: DensityAnalysis
+}
+
+export type ProcessingResponse = ThroughputProcessingResponse | DensityProcessingResponse
 
 export interface DeviceInfo {
   sa: string;
@@ -82,14 +102,55 @@ export interface DensityAnalysis {
   density_rating: number;
 }
 
-export interface ReportData {
+export interface DensityReport {
   id: string;
   title: string;
-  date: Date
+  date: Date;
+  type: Process.DENSITY;
   density: DensityAnalysis;
 }
 
-export interface ReportDataInput {
+export interface ThroughputReport {
+  id: string;
   title: string;
-  density: DensityAnalysis;
+  date: Date;
+  apSource: string;
+  hostDest: string;
+  type: Process.THROUGHPUT;
+  throughput: ThroughputAnalysis;
+}
+
+export type ReportData = DensityReport | ThroughputReport;
+
+export interface DensityReportInput {
+  type: Process.DENSITY;
+  title: string;
+  data: DensityAnalysis;
+}
+
+export interface ThroughputReportInput {
+  type: Process.THROUGHPUT;
+  title: string;
+  apSource: string;
+  hostDest: string;
+  data: ThroughputAnalysis;
+}
+
+export type ReportDataInput = DensityReportInput | ThroughputReportInput;
+
+export interface SlidingWindowPoint {
+  timestamp: number;
+  rssi: number;
+  data_rate: number;
+  retry_rate: number;
+  throughput: number;
+}
+
+export interface ThroughputAnalysis {
+  source_ap: string;
+  dest_host: string;
+  avg_rssi: number;
+  avg_retry: number;
+  avg_througput: number;
+  points: SlidingWindowPoint[];
 }

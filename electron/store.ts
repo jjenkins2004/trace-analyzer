@@ -3,8 +3,11 @@ import fs from "fs/promises";
 import syncfs from "fs";
 import path from "path";
 import Store from "electron-store";
-import { createError, Errors, serializeError } from "../src/types";
-import { ReportData, ReportDataInput } from "../src/types";
+import { createError, Errors, Process, serializeError } from "../src/types";
+import {
+  ReportData,
+  ReportDataInput,
+} from "../src/types";
 
 ipcMain.handle("getReports", async () => {
   try {
@@ -91,7 +94,24 @@ const createReport = async (input: ReportDataInput): Promise<ReportData> => {
   });
 
   // Create new shape
-  const report: ReportData = { id: id, date: new Date(), ...input };
+  const report: ReportData =
+    input.type == Process.DENSITY
+      ? {
+          id: id,
+          title: input.title,
+          date: new Date(),
+          type: Process.DENSITY,
+          density: input.data,
+        }
+      : {
+          id: id,
+          title: input.title,
+          date: new Date(),
+          apSource: input.apSource,
+          hostDest: input.hostDest,
+          type: Process.THROUGHPUT,
+          throughput: input.data,
+        };
 
   // Write the data
   store.set(report);
@@ -106,7 +126,7 @@ const deleteReport = async (id: string) => {
 
   // If it doesn't exist, throw a custom error
   if (!syncfs.existsSync(filePath)) {
-    return
+    return;
   }
 
   // Remove the JSON file

@@ -38,34 +38,28 @@ const PersistedApp: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <div className="flex flex-col w-full h-full max-h-screen">
       <Navbar />
 
-      <div className="flex-1 overflow-y-scroll">
-        <div
-          className={
-            location.pathname === "/" ? "block w-full h-full" : "hidden"
-          }
-        >
-          <Upload setReports={setGlobalReports} />
-        </div>
-        <div
-          className={
-            location.pathname === "/compare" ? "block w-full h-full" : "hidden"
-          }
-        >
-          <Compare shownReport={shownReport}/>
-        </div>
-        <div
-          className={
-            location.pathname === "/reports" ? "block w-full h-full" : "hidden"
-          }
-        >
-          <Reports
-            reports={globalReports}
-            onReportClick={onReportClick}
-            onDeleteReport={onDeleteReport}
-          />
+      <div className="flex-1 flex flex-col justify-center items-center min-h-0">
+        <div className="max-h-full w-full overflow-y-scroll">
+          <div className={location.pathname === "/" ? "block" : "hidden"}>
+            <Upload setReports={setGlobalReports} />
+          </div>
+          <div
+            className={location.pathname === "/compare" ? "block" : "hidden"}
+          >
+            <Compare shownReport={shownReport} />
+          </div>
+          <div
+            className={location.pathname === "/reports" ? "block" : "hidden"}
+          >
+            <Reports
+              reports={globalReports}
+              onReportClick={onReportClick}
+              onDeleteReport={onDeleteReport}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -144,7 +144,7 @@ def network_density(path: str):
                 info.total_rssi += frame.rssi
                 info.total_rssi_normalized += get_normalized_rssi(frame.rssi)
 
-        # Finished going through all devices, now calculate bin level values
+        # Finished going through all devices for this bin, now calculate bin level values
         total_rssi: float = 0
         total_frames: int = 0
         total_score: float = 0

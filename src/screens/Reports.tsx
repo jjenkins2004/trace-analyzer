@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { MoreVertical } from "lucide-react";
-import { ReportData } from "../types";
+import { ReportData, Process } from "../types";
 
 export interface ReportsProps {
   reports: ReportData[];
@@ -88,6 +88,11 @@ const Reports: React.FC<ReportsProps> = ({
                 </span>
                 <span className="text-sm text-text-muted block">
                   {new Date(report.date).toLocaleString()}
+                </span>
+                <span className="inline-block text-sm font-medium text-text-muted bg-background-light px-2 py-0.5 rounded">
+                  {report.type === Process.THROUGHPUT
+                    ? "Wi‑Fi Throughput Report"
+                    : "Network Density Report"}
                 </span>
               </button>
               <button

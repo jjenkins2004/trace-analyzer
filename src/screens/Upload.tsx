@@ -6,13 +6,14 @@ import React, {
   SetStateAction,
 } from "react";
 import { UploadCloud, Trash2 } from "lucide-react";
-import { processTrace } from "../helper";
+import { createDensityReport } from "../helper";
 import {
   createError,
   Errors,
   ReportData,
   ErrorWithCode,
   parseError,
+  Process,
 } from "../types";
 import LoadingScreen from "../components/LoadingScreen";
 import SuccessScreen from "../components/SuccessScreen";
@@ -28,6 +29,9 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
   const [success, setSuccess] = useState<boolean>(false);
   const [error, setError] = useState<ErrorWithCode | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [hostMac, setHostMac] = useState<string>("");
+  const [apMac, setApMac] = useState<string>("");
+  const [reportType, setReportType] = useState<Process>(Process.DENSITY);
 
   const handleFile = (selected: FileList | null) => {
     if (!selected || selected.length === 0) return;
@@ -64,7 +68,7 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
       return;
     }
     setProcessing(true);
-    processTrace(file.path, title)
+    createDensityReport(file.path, title)
       .then((report: ReportData) => {
         setReports((prev) => [report, ...prev]);
         setSuccess(true);
@@ -99,28 +103,83 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
 
   return (
     <>
-      <div className="h-full flex flex-col items-center justify-center p-6">
-        <div
-          className="w-full max-w-md p-6 border-2 border-dashed border-gray-600 rounded-lg text-center text-gray-400 hover:border-gray-400 cursor-pointer"
-          onClick={onSelectClick}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={onDrop}
-        >
-          <UploadCloud className="mx-auto mb-4 w-12 h-12 text-gray-500" />
-          <p className="mb-2">Drag & drop .pcap file here</p>
-          <p className="underline">or click to select</p>
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".pcap"
-            className="hidden"
-            onChange={(e) => handleFile(e.target.files)}
-          />
-        </div>
+      <div className="p-6 mt-8">
+        {/* File uploader */}
+        {!file && (
+          <div
+            className="w-full max-w-md p-6 border-2 border-dashed border-gray-600 rounded-lg text-center text-gray-400 hover:border-gray-400 cursor-pointer"
+            onClick={onSelectClick}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={onDrop}
+          >
+            <UploadCloud className="mx-auto mb-4 w-12 h-12 text-gray-500" />
+            <p className="mb-2">Drag & drop .pcap file here</p>
+            <p className="underline">or click to select</p>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".pcap"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files)}
+            />
+          </div>
+        )}
 
         {file && (
-          <div className="w-full max-w-md">
-            <div className="mt-8 space-y-2">
+          <div className="flex flex-col items-center justify-center">
+            {/* Report type selector */}
+            <div className="mb-6 text-center">
+              <h3
+                className="text-2xl font-semibold mb-3"
+                style={{ color: "var(--color-text)" }}
+              >
+                Select Report Type
+              </h3>
+              <div className="flex justify-center gap-4">
+                {/* Density */}
+                <div className="relative group">
+                  <button
+                    type="button"
+                    className={`w-80 px-6 py-2 rounded-lg transition-colors focus:outline-none focus:ring-0 ${
+                      reportType === Process.DENSITY
+                        ? "bg-[var(--color-primary)] text-[var(--color-text)]"
+                        : "bg-[var(--color-background)] text-[var(--color-text-muted)]"
+                    } hover:bg-[var(--color-primary-light)]`}
+                    onClick={() => setReportType(Process.DENSITY)}
+                  >
+                    Network Density
+                  </button>
+                  {/* Tooltip */}
+                  <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-max max-w-xs -translate-x-1/2 rounded-lg bg-[var(--color-background-dark)] p-2 text-[var(--color-text)] text-sm opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    Shows overall network density based on aggregated signal
+                    strength of all access points.
+                  </div>
+                </div>
+
+                {/* Throughput */}
+                <div className="relative group">
+                  <button
+                    type="button"
+                    className={`w-80 px-6 py-2 rounded-lg transition-colors focus:outline-none focus:ring-0 ${
+                      reportType === Process.THROUGHPUT
+                        ? "bg-[var(--color-primary)] text-[var(--color-text)]"
+                        : "bg-[var(--color-background)] text-[var(--color-text-muted)]"
+                    } hover:bg-[var(--color-primary-light)]`}
+                    onClick={() => setReportType(Process.THROUGHPUT)}
+                  >
+                    Throughput
+                  </button>
+                  {/* Tooltip */}
+                  <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-max max-w-xs -translate-x-1/2 rounded-lg bg-[var(--color-background-dark)] p-2 text-[var(--color-text)] text-sm opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    Displays throughput metrics between a specific access point
+                    and host device.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Title input */}
+            <div className="mt-8 space-y-2 w-md">
               <label className="block text-sm font-medium text-gray-300">
                 Report Title
               </label>
@@ -153,6 +212,38 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
                   : ""}
               </p>
             </div>
+
+            {/* Throughput-specific fields */}
+            {reportType === Process.THROUGHPUT && (
+              <div className="space-y-4 w-md">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Access Point MAC Address
+                  </label>
+                  <input
+                    type="text"
+                    value={apMac}
+                    onChange={(e) => setApMac(e.target.value)}
+                    placeholder="e.g. 00:11:22:33:44:55"
+                    className="w-full px-4 py-2 bg-gray-800 text-gray-100 placeholder-gray-500 border-gray-600 rounded-lg focus:outline-none focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Host MAC Address
+                  </label>
+                  <input
+                    type="text"
+                    value={hostMac}
+                    onChange={(e) => setHostMac(e.target.value)}
+                    placeholder="e.g. AA:BB:CC:DD:EE:FF"
+                    className="w-full px-4 py-2 bg-gray-800 text-gray-100 placeholder-gray-500 border-gray-600 rounded-lg focus:outline-none focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Selected trace preview and Analyze button */}
             <div className="w-full max-w-md mt-6 bg-gray-700 rounded-lg p-4">
               <h2 className="text-gray-200 font-medium mb-2">Selected Trace</h2>
               <div className="flex justify-between items-center bg-gray-800 rounded px-3 py-2">
@@ -167,6 +258,19 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
               >
                 Analyze
               </button>
+
+              {/* Display non-title errors */}
+              {error &&
+                error.code !== Errors.NO_TITLE &&
+                error.code !== Errors.TITLE_EXITST && (
+                  <p className="mt-4 text-sm text-red-500">
+                    {error.code === Errors.PROCESSING_ERROR
+                      ? "An error occurred while processing the trace."
+                      : error.code === Errors.UNKNOWN
+                      ? "An unknown error occurred."
+                      : error.message}
+                  </p>
+                )}
             </div>
           </div>
         )}

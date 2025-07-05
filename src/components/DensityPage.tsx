@@ -2,7 +2,7 @@
 // React component to display a full report based on ReportData, using Tailwind CSS.
 
 import React from "react";
-import { ReportData, DeviceInfo } from "../types";
+import { DeviceInfo, DensityReport } from "../types";
 import {
   BarChart,
   Bar,
@@ -32,11 +32,11 @@ function getDensityText(score: number): string {
   return "Extremely Dense";
 }
 
-export interface ReportProps {
-  report: ReportData;
+export interface DensityPageProps {
+  report: DensityReport;
 }
 
-const Report: React.FC<ReportProps> = ({ report }) => {
+const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
   const { title, date, density } = report;
 
   function getDensityGraphData() {
@@ -262,7 +262,7 @@ const Report: React.FC<ReportProps> = ({ report }) => {
   );
 };
 
-export default Report;
+export default DensityPage;
 
 interface DensityDataPoint {
   id: number;
