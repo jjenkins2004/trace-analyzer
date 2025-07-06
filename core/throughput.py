@@ -9,6 +9,19 @@ from wifi import relative_data_rate_ratio, phy_info
 
 @dataclass
 class DownlinkFrame:
+    """
+    Data for a single downlink Wi-Fi frame.
+
+    Attributes:
+        rssi (float): Received Signal Strength Indicator in dBm.
+        data_rate (float): PHY data rate in Mbps.
+        retry (int): Retry flag (1 if this is a retransmission, else 0).
+        protocol (int): Numeric PHY type code, refer to wifi.py.
+        time_on_air_us (float): On-air transmission time in microseconds.
+        relative_data_rate_ratio (float): Ratio of observed MCS to max achievable MCS (0-1).
+        timestamp (float): Time (s) since capture start when this frame was observed.
+    """
+
     rssi: float
     data_rate: float
     retry: int
@@ -20,6 +33,19 @@ class DownlinkFrame:
 
 @dataclass
 class SlidingWindowPoint:
+    """
+    Aggregated Wi-Fi metrics computed over a sliding window of frames (50 frames).
+
+    Attributes:
+        timestamp (float): Timestamp (in seconds) of the current sliding window end.
+        rssi (float): Average RSSI over the window.
+        data_rate (float): Average data rate (Mbps) over the window.
+        retry_rate (float): Ratio of retry frames in the window.
+        throughput (float): Estimated throughput in Mbps (data rate * (1 - retry_rate)).
+        rate_ratio (float): Average data rate efficiency.
+        avg_time_on_air_us (float): Average frame duration in microseconds.
+    """
+
     timestamp: float
     rssi: float
     data_rate: float
@@ -31,6 +57,20 @@ class SlidingWindowPoint:
 
 @dataclass
 class ThroughputAnalysis:
+    """
+    Overall analysis of Wi-Fi throughput performance over a trace.
+
+    Attributes:
+        avg_rssi (float): Average received signal strength (dBm) across all downlink frames.
+        avg_retry (float): Average retry rate across all frames (value between 0 and 1).
+        avg_througput (float): Average throughput (Mbps) across all windows.
+        total_frames (float): Total number of downlink frames processed.
+        time_on_air_us (float): Total channel occupancy time (in microseconds) for all frames.
+        avg_rate_ratio (float): Average ratio of observed data rate to theoretical max.
+        found_phys (list[str]): List of unique PHY protocols encountered (e.g. ["802.11n", "802.11ac"]).
+        points (list[SlidingWindowPoint]): Time series of computed stats per window.
+    """
+
     avg_rssi: float
     avg_retry: float
     avg_througput: float
@@ -50,6 +90,7 @@ def wifi_throughput(path: str, ap_mac: str, host_mac: str):
     if not frames:
         raise ValueError("No frames extracted")
 
+    # Compute all of our metrics from the frames
     throughput = compute_downlink_throughput(frames=frames)
     return throughput
 
@@ -58,16 +99,17 @@ def compute_downlink_throughput(
     frames: list[DownlinkFrame], window_size: int = 50
 ) -> ThroughputAnalysis:
 
+    # Use a buffer to keep track of which frames we should analyze for the window
     buf: deque[DownlinkFrame] = deque(maxlen=window_size)
     points: list[SlidingWindowPoint] = []
 
     for f in frames:
         buf.append(f)
-        # wait until buffer is full
+        # Wait until buffer is full
         if len(buf) < window_size:
             continue
 
-        # compute the sliding‐window stats
+        # Compute the sliding‐window stats
         rel_ts = f.timestamp
         avg_rssi = mean(frame.rssi for frame in buf)
         avg_data_rate = mean(frame.data_rate for frame in buf)
@@ -76,6 +118,7 @@ def compute_downlink_throughput(
         avg_time = mean(frame.time_on_air_us for frame in buf)
         rate_ratio = mean(frame.relative_data_rate_ratio for frame in buf)
 
+        # Save new sliding window point
         points.append(
             SlidingWindowPoint(
                 timestamp=rel_ts,
@@ -88,19 +131,20 @@ def compute_downlink_throughput(
             )
         )
 
-    # overall averages (over entire trace / full windows)
+    # Overall averages (over entire trace / windows)
     avg_rssi_all = mean(f.rssi for f in frames)
     avg_retry_all = sum(f.retry for f in frames) / len(frames)
     avg_tp_all = mean(p.throughput for p in points)
     rate_ratio = mean(p.rate_ratio for p in points)
 
-    # Found phys
+    # All found Wifi standards used
     found_phys = []
     for f in frames:
-        name = phy_info[f.protocol].name
+        name = phy_info[f.protocol]["name"]
         if f.protocol != 0 and name not in found_phys:
             found_phys.append(name)
 
+    # Final Analysis object
     return ThroughputAnalysis(
         avg_rssi=avg_rssi_all,
         avg_retry=avg_retry_all,
@@ -131,7 +175,6 @@ def extract(path: str, ap_mac: str, host_mac: str) -> list[DownlinkFrame]:
     try:
         for pkt in cap:
             if first:
-                print(pkt)
                 start_time = float(pkt.sniff_timestamp)
                 first = False
 

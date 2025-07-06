@@ -74,17 +74,19 @@ phy_info = {
     },
 }
 
-
+# Finds the index with the closest value to the target value
 def closest_index(arr, target):
     return min(range(len(arr)), key=lambda i: abs(arr[i] - target))
 
 
 def relative_data_rate_ratio(pkt) -> float:
+    # Extract relevant info from packet
     radio = pkt.wlan_radio
     phy = int(radio.phy)
     data_rate = float(radio.data_rate)
     mcs = extract_mcs(pkt)
 
+    # Ignore these phys
     if phy < 4 or phy == 9:
         return 0.0
 
@@ -107,6 +109,7 @@ def relative_data_rate_ratio(pkt) -> float:
     return observed / max_mcs
 
 
+# Extracts the mcs from the packet if it exists
 def extract_mcs(pkt) -> int | None:
     radio = pkt.wlan_radio
     if "11ac.user" in pkt.wlan_radio.field_names:

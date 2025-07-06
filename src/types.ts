@@ -87,7 +87,8 @@ export interface SlidingWindowPoint {
   data_rate: number;
   retry_rate: number;
   throughput: number;
-  time_on_air_us: number
+  rate_ratio: number;
+  avg_time_on_air_us: number;
 }
 
 export interface ThroughputAnalysis {
@@ -96,6 +97,8 @@ export interface ThroughputAnalysis {
   avg_througput: number;
   total_frames: number;
   time_on_air_us: number;
+  avg_rate_ratio: number;
+  found_phys: string[];
   points: SlidingWindowPoint[];
 }
 

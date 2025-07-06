@@ -48,7 +48,8 @@ export async function request(payload: object) {
       let msg;
       try {
         msg = JSON.parse(line);
-      } catch {
+      } catch (e) {
+        console.log(e);
         reject(
           createError(
             "Processing returned an unexpected response",
