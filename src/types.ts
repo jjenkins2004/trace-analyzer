@@ -1,7 +1,15 @@
+// ==============================
+// Process Type
+// ==============================
+
 export enum Process {
   THROUGHPUT = "THROUGHPUT",
   DENSITY = "DENSITY",
 }
+
+// ==============================
+// Payload Input
+// ==============================
 
 export interface Payload {
   process: Process;
@@ -9,6 +17,10 @@ export interface Payload {
   ap: string | null;
   host: string | null;
 }
+
+// ==============================
+// Error Handling
+// ==============================
 
 export enum Errors {
   TITLE_EXITST,
@@ -42,14 +54,12 @@ export function serializeError(error: unknown) {
 }
 
 export function parseError(err: unknown): ErrorWithCode | null {
-  if (!(err instanceof Error)) {
-    return null;
-  }
+  if (!(err instanceof Error)) return null;
 
   const jsonStart = err.message.indexOf("{");
   const jsonEnd = err.message.lastIndexOf("}");
 
-  if (jsonStart == -1 || jsonEnd == -1 || jsonEnd <= jsonStart) {
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
     return null;
   }
 
@@ -67,19 +77,54 @@ export function createError(message: string, code: Errors): ErrorWithCode {
   return err;
 }
 
+// ==============================
+// Throughput Analysis
+// ==============================
+
+export interface SlidingWindowPoint {
+  timestamp: number;
+  rssi: number;
+  data_rate: number;
+  retry_rate: number;
+  throughput: number;
+  time_on_air_us: number
+}
+
+export interface ThroughputAnalysis {
+  avg_rssi: number;
+  avg_retry: number;
+  avg_througput: number;
+  total_frames: number;
+  time_on_air_us: number;
+  points: SlidingWindowPoint[];
+}
+
+export interface ThroughputReport {
+  id: string;
+  title: string;
+  date: Date;
+  apSource: string;
+  hostDest: string;
+  type: Process.THROUGHPUT;
+  throughput: ThroughputAnalysis;
+}
+
+export interface ThroughputReportInput {
+  type: Process.THROUGHPUT;
+  title: string;
+  apSource: string;
+  hostDest: string;
+  data: ThroughputAnalysis;
+}
+
 export interface ThroughputProcessingResponse {
   type: Process.THROUGHPUT;
   data: ThroughputAnalysis;
 }
 
-export interface DensityProcessingResponse {
-  type: Process.DENSITY;
-  data: DensityAnalysis;
-}
-
-export type ProcessingResponse =
-  | ThroughputProcessingResponse
-  | DensityProcessingResponse;
+// ==============================
+// Density Analysis
+// ==============================
 
 export interface DeviceInfo {
   sa: string;
@@ -115,47 +160,25 @@ export interface DensityReport {
   density: DensityAnalysis;
 }
 
-export interface ThroughputReport {
-  id: string;
-  title: string;
-  date: Date;
-  apSource: string;
-  hostDest: string;
-  type: Process.THROUGHPUT;
-  throughput: ThroughputAnalysis;
-}
-
-export type ReportData = DensityReport | ThroughputReport;
-
 export interface DensityReportInput {
   type: Process.DENSITY;
   title: string;
   data: DensityAnalysis;
 }
 
-export interface ThroughputReportInput {
-  type: Process.THROUGHPUT;
-  title: string;
-  apSource: string;
-  hostDest: string;
-  data: ThroughputAnalysis;
+export interface DensityProcessingResponse {
+  type: Process.DENSITY;
+  data: DensityAnalysis;
 }
+
+// ==============================
+// Shared Report Types
+// ==============================
+
+export type ProcessingResponse =
+  | ThroughputProcessingResponse
+  | DensityProcessingResponse;
+
+export type ReportData = DensityReport | ThroughputReport;
 
 export type ReportDataInput = DensityReportInput | ThroughputReportInput;
-
-export interface SlidingWindowPoint {
-  timestamp: number;
-  rssi: number;
-  data_rate: number;
-  retry_rate: number;
-  throughput: number;
-}
-
-export interface ThroughputAnalysis {
-  source_ap: string;
-  dest_host: string;
-  avg_rssi: number;
-  avg_retry: number;
-  avg_througput: number;
-  points: SlidingWindowPoint[];
-}

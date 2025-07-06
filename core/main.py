@@ -3,7 +3,7 @@ from analyze import analyze_density, analyze_throughput, process
 from dataclasses import asdict
 from enum import Enum
 import traceback
-
+import os
 
 def _json_default(o):
     # handle Enums
@@ -31,6 +31,10 @@ def main():
         # write result as a single JSON line
         sys.stdout.write(json.dumps(out, default=_json_default) + "\n")
         sys.stdout.flush()
+
+         # Suppress any TShark stderr noise
+        devnull = open(os.devnull, "w")
+        sys.stderr = devnull
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ class BeaconFrame:
     """
 
     sa: str
-    protocol: str
+    protocol: str | None
     rssi: float
     timestamp: float
 
