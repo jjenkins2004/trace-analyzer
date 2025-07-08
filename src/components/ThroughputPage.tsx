@@ -39,7 +39,7 @@ const GraphMetricConfig: Record<GraphMetric, MetricConfig> = {
   [GraphMetric.dataRate]: {
     dataKey: "data_rate",
     unit: "Mb/s",
-    color: "var(--color-primary-light)",
+    color: "var(--color-text-rose)",
   },
   [GraphMetric.airTime]: {
     dataKey: "avg_time_on_air_us",
@@ -49,7 +49,7 @@ const GraphMetricConfig: Record<GraphMetric, MetricConfig> = {
   [GraphMetric.retryRate]: {
     dataKey: "retry_rate",
     unit: "%",
-    color: "var(--color-text-light-purple)",
+    color: "var(--color-text-yellow)",
   },
   [GraphMetric.none]: {
     dataKey: "",
@@ -220,7 +220,10 @@ const OverlayGraph: React.FC<OverlayGraphProps> = ({ data, left, right }) => {
   return (
     <div style={{ width: "100%", height: 500 }}>
       <ResponsiveContainer>
-        <LineChart data={data} margin={{ bottom: 20, left: 30, right: 30, top: 40 }}>
+        <LineChart
+          data={data}
+          margin={{ bottom: 20, left: 30, right: 30, top: 40 }}
+        >
           <CartesianGrid stroke="#444" strokeDasharray="3 3" />
           <XAxis
             dataKey="id"

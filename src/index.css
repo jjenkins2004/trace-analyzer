@@ -40,6 +40,8 @@
   --color-text-light-blue: #a5b4fc;
   --color-text-light-purple: #c4b5fd;
   --color-text-green-muted: #8a9a91;
+  --color-text-rose: #f472b6;
+  --color-text-yellow: #facc15;
 }
 
 @layer utilities {
