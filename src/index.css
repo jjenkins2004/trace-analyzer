@@ -13,6 +13,11 @@
   button {
     @apply cursor-pointer;
   }
+
+  *:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.5); /* semi-transparent primary color */
+  }
 }
 
 @theme {
@@ -34,7 +39,7 @@
   --color-text-muted: #9ca3af;
   --color-text-light-blue: #a5b4fc;
   --color-text-light-purple: #c4b5fd;
-  --color-text-green-muted: #8A9A91
+  --color-text-green-muted: #8a9a91;
 }
 
 @layer utilities {
