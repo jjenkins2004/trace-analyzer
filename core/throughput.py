@@ -111,7 +111,7 @@ def compute_downlink_throughput(
 
         # Compute the sliding‐window stats
         rel_ts = f.timestamp
-        avg_rssi = mean(frame.rssi for frame in buf)
+        avg_rssi = mean(frame.rssi for frame in buf if frame.rssi != 0)
         avg_data_rate = mean(frame.data_rate for frame in buf)
         retry_rate = sum(frame.retry for frame in buf) / window_size
         tp = avg_data_rate * (1 - retry_rate)
@@ -132,7 +132,7 @@ def compute_downlink_throughput(
         )
 
     # Overall averages (over entire trace / windows)
-    avg_rssi_all = mean(f.rssi for f in frames)
+    avg_rssi_all = mean(f.rssi for f in frames if f.rssi != 0)
     avg_retry_all = sum(f.retry for f in frames) / len(frames)
     avg_tp_all = mean(p.throughput for p in points)
     rate_ratio = mean(p.rate_ratio for p in points)
@@ -143,6 +143,9 @@ def compute_downlink_throughput(
         name = phy_info[f.protocol]["name"]
         if f.protocol != 0 and name not in found_phys:
             found_phys.append(name)
+
+    # Fix holes in our data
+    points = fill_zero_rssis(points=points)
 
     # Final Analysis object
     return ThroughputAnalysis(
@@ -224,3 +227,32 @@ def extract(path: str, ap_mac: str, host_mac: str) -> list[DownlinkFrame]:
             pass
 
     return frames
+
+
+def fill_zero_rssis(points: list[SlidingWindowPoint]) -> list[SlidingWindowPoint]:
+    corrected = []
+    n = len(points)
+
+    for i, pt in enumerate(points):
+        if pt.rssi != 0:
+            corrected.append(pt)
+            continue
+
+        left, right = i - 1, i + 1
+        replacement = None
+
+        while left >= 0 or right < n:
+            if left >= 0 and points[left].rssi != 0:
+                replacement = points[left].rssi
+                break
+            if right < n and points[right].rssi != 0:
+                replacement = points[right].rssi
+                break
+            left -= 1
+            right += 1
+
+        if replacement is not None:
+            pt.rssi = replacement
+        corrected.append(pt)
+
+    return corrected
