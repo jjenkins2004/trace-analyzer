@@ -75,8 +75,6 @@ const ThroughputPage: React.FC<ThroughputPageProps> = ({ report }) => {
     });
   }
 
-  console.log(throughput);
-
   return (
     <div className="min-h-full p-8 text-text bg-background">
       {/* Header */}
@@ -140,29 +138,57 @@ const ThroughputPage: React.FC<ThroughputPageProps> = ({ report }) => {
       </section>
 
       {/* Summary Cards */}
-      <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Avg Throughput */}
-        <div className="bg-background-dark p-6 rounded-lg">
-          <p className="text-sm text-text-muted">Avg Throughput (Mbps)</p>
-          <p className="text-3xl font-extrabold text-secondary">
-            {throughput.avg_througput.toFixed(2)}
-          </p>
+      <section className="mb-12 space-y-6">
+        {/* Top Row: Diagnosis & Throughput */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Throughput Diagnosis */}
+          <div className="bg-background-dark p-6 py-8 rounded-lg">
+            <h3 className="text-sm text-text-muted">Throughput Diagnosis</h3>
+            <p className="text-3xl font-extrabold text-secondary">
+              {"diagnosis"}
+            </p>
+          </div>
+
+          {/* Avg Throughput (Larger) */}
+          <div className="bg-background-dark p-6 py-8 rounded-lg ">
+            <h3 className="text-sm text-text-muted">Avg Throughput (Mbps)</h3>
+            <p className="text-3xl font-extrabold text-secondary">
+              {throughput.avg_througput.toFixed(2)}
+            </p>
+          </div>
         </div>
 
-        {/* Avg RSSI */}
-        <div className="bg-background-dark p-6 rounded-lg">
-          <p className="text-sm text-text-muted">Avg RSSI (dBm)</p>
-          <p className="text-3xl font-extrabold text-primary">
-            {throughput.avg_rssi.toFixed(1)}
-          </p>
-        </div>
+        {/* Bottom Row: Other Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Avg RSSI */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">Avg RSSI (dBm)</p>
+            <p className="text-xl font-medium">
+              {throughput.avg_rssi.toFixed(1)}
+            </p>
+          </div>
 
-        {/* Avg Retry */}
-        <div className="bg-background-dark p-6 rounded-lg">
-          <p className="text-sm text-text-muted">Avg Retry Rate (%)</p>
-          <p className="text-3xl font-extrabold text-primary-light">
-            {(throughput.avg_retry * 100).toFixed(1)}
-          </p>
+          {/* Avg Retry Rate */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">Avg Retry Rate (%)</p>
+            <p className="text-xl font-medium">
+              {(throughput.avg_retry * 100).toFixed(1)}
+            </p>
+          </div>
+
+          {/* Total Frames */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">Total Frames</p>
+            <p className="text-xl font-medium">{throughput.total_frames}</p>
+          </div>
+
+          {/* Time on Air */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">Time on Air (ms)</p>
+            <p className="text-xl font-medium">
+              {(throughput.time_on_air_us / 1000).toFixed(2)}
+            </p>
+          </div>
         </div>
       </section>
     </div>
@@ -212,6 +238,7 @@ const OverlayGraph: React.FC<OverlayGraphProps> = ({ data, left, right }) => {
           strokeWidth={2}
           dot={false}
           activeDot={false}
+          isAnimationActive={data.length > 500 ? false : true}
         />
       </>
     );
