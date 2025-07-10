@@ -85,7 +85,7 @@ export async function request(payload: object) {
           Errors.PROCESSING_ERROR
         )
       );
-    }, 10000);
+    }, 60000);
   });
 }
 

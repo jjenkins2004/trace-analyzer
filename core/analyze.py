@@ -37,11 +37,13 @@ def analyze_throughput(path: str, ap: str, host: str):
 if __name__ == "__main__":
     import pprint
 
-    result = analyze_throughput(
-        path="test_pcap/throughput-test.pcap",
-        ap="2C:F8:9B:DD:06:A0",
-        host="00:20:A6:FC:B0:36",
-    )
+    # result = analyze_throughput(
+    #     path="test_pcap/throughput-test.pcap",
+    #     ap="2C:F8:9B:DD:06:A0",
+    #     host="00:20:A6:FC:B0:36",
+    # )
+
+    result = analyze_density(path="test_pcap/dense-sparse-dense.pcap")
 
     pprint.pprint(result, width=80)
 

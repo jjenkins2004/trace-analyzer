@@ -29,10 +29,9 @@ def main():
             # Catch all errors, and create our custom response for it
             out = {"error": str(traceback.format_exc())}
         # write result as a single JSON line
-        sys.stdout.write(json.dumps(out, default=_json_default) + "\n")
-        sys.stdout.flush()
+        print(json.dumps(out, default=_json_default) + "\n", flush=True)
 
-         # Suppress any TShark stderr noise
+        # Suppress any TShark stderr noise
         devnull = open(os.devnull, "w")
         sys.stderr = devnull
 

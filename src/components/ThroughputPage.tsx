@@ -72,7 +72,7 @@ function getDiagnosis(
   // categorize inputs
   const rssiCat = rssi >= -50 ? "high" : rssi >= -70 ? "med" : "low";
   const rateCat = avgRateRatio >= 0.5 ? "high" : "low";
-  const retryCat = retryRate <= 0.3 ? "low" : retryRate <= 0.5 ? "med" : "high";
+  const retryCat = retryRate <= 0.25 ? "low" : retryRate <= 0.5 ? "med" : "high";
 
   // map combos to diagnosis
   if (rssiCat === "high" && rateCat === "high" && retryCat === "low") {

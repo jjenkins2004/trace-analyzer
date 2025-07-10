@@ -23,7 +23,6 @@ class BeaconFrame:
     """
 
     sa: str
-    protocol: str | None
     rssi: float
     timestamp: float
 
@@ -134,7 +133,7 @@ def network_density(path: str):
                     # type=frame.type,
                     total_frames=1,
                     total_rssi=frame.rssi,
-                    total_rssi_normalized= get_normalized_rssi(frame.rssi),
+                    total_rssi_normalized=get_normalized_rssi(frame.rssi),
                     score=0,
                 )
             else:
@@ -206,7 +205,6 @@ def get_normalized_rssi(rssi: float):
     return max(0, min(rssi - floor, ceiling - floor))
 
 
-
 def find_time_interval(lifespan_s: float) -> int:
     """
     Returns the time interval in seconds
@@ -254,40 +252,57 @@ def extract(path: str) -> list[BeaconFrame]:
     frames: list[BeaconFrame] = []
 
     first = True
-    start_time: float
+    start_time: float = 0.0
 
     # Extract relevant data
+    failed_packets = 0
+    total_packets = 0
     try:
         for pkt in cap:
+            failed = False
+
             if first:
-                start_time = float(pkt.sniff_timestamp)
+                try:
+                    start_time = float(pkt.sniff_timestamp)
+                except (AttributeError, ValueError, TypeError):
+                    start_time = 0.0
                 first = False
+
             # Source Address, same as BSSID for APs
-            sa = pkt.wlan.sa
+            try:
+                sa = pkt.wlan.sa
+            except (AttributeError, ValueError):
+                sa = "Unknown"
 
-            radio = pkt.wlan_radio
-
-            # Wifi protocol
-            protocol = radio.phy
+            radio = getattr(pkt, "wlan_radio", None)
 
             # Signal Strength
-            rssi = float(radio.signal_dbm)
+            try:
+                rssi = float(radio.signal_dbm)
+            except (AttributeError, ValueError, TypeError):
+                failed = True
 
-            timestamp = float(pkt.sniff_timestamp) - start_time
+            # Timestamp relative to first packet
+            try:
+                timestamp = float(pkt.sniff_timestamp) - start_time
+            except (AttributeError, ValueError, TypeError):
+                failed = True
 
-            frames.append(
-                BeaconFrame(
-                    sa=sa,
-                    # type=(
-                    #     DeviceType.ACCESS_POINT
-                    #     if int(pkt.wlan.type_subtype, 16) == 8
-                    #     else DeviceType.CLIENT
-                    # ),
-                    protocol=protocol,
-                    rssi=rssi,
-                    timestamp=timestamp,
+            total_packets += 1
+            if not failed:
+                frames.append(
+                    BeaconFrame(
+                        sa=sa,
+                        rssi=rssi,
+                        timestamp=timestamp,
+                    )
                 )
-            )
+            else:
+                failed_packets += 1
+
+        # Don't process this file if there are too many failures
+        if total_packets != 0 and failed_packets / total_packets > 0.3:
+            raise ValueError("Frames did not have necessary fields")
 
         # Ensure results are sorted by timestamp
         frames.sort(key=lambda f: f.timestamp)

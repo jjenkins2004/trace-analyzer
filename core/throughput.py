@@ -175,45 +175,82 @@ def extract(path: str, ap_mac: str, host_mac: str) -> list[DownlinkFrame]:
     start_time: float
 
     # Extract relevant data
+    failed_packets = 0
+    total_packets = 0
     try:
         for pkt in cap:
+            failed = False
+
             if first:
-                start_time = float(pkt.sniff_timestamp)
+                try:
+                    start_time = float(pkt.sniff_timestamp)
+                except (AttributeError, ValueError):
+                    start_time = 0.0
                 first = False
 
-            radio = pkt.wlan_radio
+            radio = getattr(pkt, "wlan_radio", None)
 
             # Wifi protocol
-            protocol = int(radio.phy)
+            try:
+                protocol = int(radio.phy)
+            except (AttributeError, ValueError, TypeError):
+                protocol = 0
 
             # RSSI
-            rssi = float(radio.signal_dbm)
+            try:
+                rssi = float(radio.signal_dbm)
+            except (AttributeError, ValueError, TypeError):
+                failed = True
 
             # Data rate
-            data_rate = float(radio.data_rate)
+            try:
+                data_rate = float(radio.data_rate)
+            except (AttributeError, ValueError, TypeError):
+                failed = True
 
             # Retry flag
-            retry = int(pkt.wlan.fc_tree.flags_tree.retry)
+            try:
+                retry = int(pkt.wlan.fc_tree.flags_tree.retry)
+            except (AttributeError, ValueError, TypeError):
+                retry = 0
 
             # Packet duration
-            time_on_air_us = float(radio.duration)
+            try:
+                time_on_air_us = float(radio.duration)
+            except (AttributeError, ValueError, TypeError):
+                time_on_air_us = 0.0
 
             # data rate potential ratio
-            ratio = relative_data_rate_ratio(pkt)
+            try:
+                ratio = relative_data_rate_ratio(pkt)
+            except Exception:
+                ratio = 0.0
 
-            timestamp = float(pkt.sniff_timestamp) - start_time
+            # Timestamp relative to first packet
+            try:
+                timestamp = float(pkt.sniff_timestamp) - start_time
+            except (AttributeError, ValueError, TypeError):
+                timestamp = 0.0
 
-            frames.append(
-                DownlinkFrame(
-                    rssi=rssi,
-                    data_rate=data_rate,
-                    retry=retry,
-                    protocol=protocol,
-                    time_on_air_us=time_on_air_us,
-                    relative_data_rate_ratio=ratio,
-                    timestamp=timestamp,
+            total_packets +=1
+            if not failed:
+                frames.append(
+                    DownlinkFrame(
+                        rssi=rssi,
+                        data_rate=data_rate,
+                        retry=retry,
+                        protocol=protocol,
+                        time_on_air_us=time_on_air_us,
+                        relative_data_rate_ratio=ratio,
+                        timestamp=timestamp,
+                    )
                 )
-            )
+            else:
+                failed_packets += 1
+        
+        # Don't process this file if there are too many failures
+        if total_packets != 0 and failed_packets / total_packets > 0.3:
+            raise ValueError("Frames did not have necessary fields")
 
         # Ensure results are sorted by timestamp
         frames.sort(key=lambda f: f.timestamp)
