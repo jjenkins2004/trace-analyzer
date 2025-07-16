@@ -3,6 +3,7 @@ from pyshark.capture.capture import TSharkCrashException
 from dataclasses import dataclass
 from collections import deque
 from statistics import mean
+import logging
 
 from wifi import relative_data_rate_ratio, phy_info
 
@@ -15,15 +16,18 @@ class DownlinkFrame:
     Attributes:
         rssi (float): Received Signal Strength Indicator in dBm.
         data_rate (float): PHY data rate in Mbps.
+        payload_bits (float): number of actual payload bits after removing header stuff.
         retry (int): Retry flag (1 if this is a retransmission, else 0).
         protocol (int): Numeric PHY type code, refer to wifi.py.
         time_on_air_us (float): On-air transmission time in microseconds.
+        ifs (float): inter frame spacing.
         relative_data_rate_ratio (float): Ratio of observed MCS to max achievable MCS (0-1).
         timestamp (float): Time (s) since capture start when this frame was observed.
     """
 
     rssi: float
     data_rate: float
+    payload_bits: float
     retry: int
     protocol: int
     time_on_air_us: float
@@ -113,10 +117,19 @@ def compute_downlink_throughput(
         rel_ts = f.timestamp
         avg_rssi = mean(frame.rssi for frame in buf if frame.rssi != 0)
         avg_data_rate = mean(frame.data_rate for frame in buf)
-        retry_rate = sum(frame.retry for frame in buf) / window_size
-        tp = avg_data_rate * (1 - retry_rate)
         avg_time = mean(frame.time_on_air_us for frame in buf)
         rate_ratio = mean(frame.relative_data_rate_ratio for frame in buf)
+        num_retries = sum(frame.retry for frame in buf)
+        retry_rate =  num_retries / window_size
+
+        # Calculate tries per success
+        total = num_retries * 2 + window_size - num_retries
+        correction_factor = window_size / total
+
+        # Calculate tp
+        extra_frame_time = 69 # SIFS + ACK
+        real_avg_data_rate = sum(frame.payload_bits for frame in frames) / sum(frame.time_on_air_us + extra_frame_time for frame in frames)
+        tp = real_avg_data_rate * correction_factor
 
         # Save new sliding window point
         points.append(
@@ -181,6 +194,9 @@ def extract(path: str, ap_mac: str, host_mac: str) -> list[DownlinkFrame]:
         for pkt in cap:
             failed = False
 
+            if total_packets % 10_000 == 0:
+                logging.info(f"Total parsed: {total_packets}")
+
             if first:
                 try:
                     start_time = float(pkt.sniff_timestamp)
@@ -219,6 +235,12 @@ def extract(path: str, ap_mac: str, host_mac: str) -> list[DownlinkFrame]:
                 time_on_air_us = float(radio.duration)
             except (AttributeError, ValueError, TypeError):
                 time_on_air_us = 0.0
+            
+            # Number of payload bits
+            try:
+                payload_bits = float(pkt.data.len) * 8
+            except (AttributeError, ValueError, TypeError):
+                failed = True
 
             # data rate potential ratio
             try:
@@ -238,6 +260,7 @@ def extract(path: str, ap_mac: str, host_mac: str) -> list[DownlinkFrame]:
                     DownlinkFrame(
                         rssi=rssi,
                         data_rate=data_rate,
+                        payload_bits=payload_bits,
                         retry=retry,
                         protocol=protocol,
                         time_on_air_us=time_on_air_us,
