@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from collections import deque
 from statistics import mean
 import logging
-
-from sympy import true
+import time as timer
 
 from wifi import relative_data_rate_ratio, phy_info
 
@@ -100,6 +99,7 @@ class ThroughputAnalysis:
 
 
 def wifi_throughput(path: str, ap_mac: str, host_mac: str):
+    start_time = timer.perf_counter()
 
     # Extract all downlink data frames from ap to host
     frames, aggregate_groups = extract(path=path, ap_mac=ap_mac, host_mac=host_mac)
@@ -113,6 +113,8 @@ def wifi_throughput(path: str, ap_mac: str, host_mac: str):
     pre_processed = pre_process(frames=frames, aggregate_groups=aggregate_groups)
     logging.info("Finished preprocessing")
     throughput = compute_downlink_throughput(data_points=pre_processed)
+    logging.info(f"Finished analysis in {timer.perf_counter() - start_time:.2f}s")
+
     return throughput
 
 
@@ -135,6 +137,7 @@ def pre_process(
         return datapoints
     window_size = max(1, n // 1000)
     for i in range(0, n, window_size):
+
         # Get the window of frames we're aggregating
         window = frames[i : i + window_size]
 
@@ -193,6 +196,7 @@ def compute_downlink_throughput(
     points: list[SlidingWindowPoint] = []
 
     for p in data_points:
+
         buf.append(p)
         # Wait until buffer is full
         if len(buf) < window_size:
@@ -206,7 +210,7 @@ def compute_downlink_throughput(
         rate_ratio = mean(p.relative_data_rate_ratio for p in buf)
         num_retries = sum(p.retries for p in buf)
         retry_rate = num_retries / window_size
-        tp = mean(p.throughput * p.time_on_air_us for p in buf) / sum(
+        tp = sum(p.throughput * p.time_on_air_us for p in buf) / sum(
             p.time_on_air_us for p in buf
         )
 
@@ -254,7 +258,9 @@ def compute_downlink_throughput(
     )
 
 
-def extract(path: str, ap_mac: str, host_mac: str) -> list[DataFrame]:
+def extract(
+    path: str, ap_mac: str, host_mac: str
+) -> tuple[list[DataFrame], dict[int, int]]:
     # Load data frames and probe requests into memory
     cap = pyshark.FileCapture(
         path,
@@ -320,11 +326,11 @@ def extract(path: str, ap_mac: str, host_mac: str) -> list[DataFrame]:
                 failed = True
 
             # If its part of an aggregate group, add its duration to the group total
-            is_aggregate = False
             if hasattr(radio, "a_mpdu_aggregate_id"):
-                is_aggregate = True
-                id = int(radio.a_mpdu_aggregate_id)
-                aggregate_groups[id] = aggregate_groups.get(id) + time_on_air_us
+                agg_id = int(radio.a_mpdu_aggregate_id)
+                aggregate_groups[agg_id] = (
+                    aggregate_groups.get(agg_id, 0) + time_on_air_us
+                )
 
             # Number of payload bits
             try:
@@ -350,7 +356,7 @@ def extract(path: str, ap_mac: str, host_mac: str) -> list[DataFrame]:
                     DataFrame(
                         rssi=rssi,
                         data_rate=data_rate,
-                        is_aggregate=True,
+                        aggregate_id=agg_id,
                         payload_bits=payload_bits,
                         retry=retry,
                         protocol=protocol,
@@ -377,7 +383,7 @@ def extract(path: str, ap_mac: str, host_mac: str) -> list[DataFrame]:
         except TSharkCrashException:
             pass
 
-    return frames
+    return frames, aggregate_groups
 
 
 def fill_zero_rssis(points: list[SlidingWindowPoint]) -> list[SlidingWindowPoint]:
