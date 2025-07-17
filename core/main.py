@@ -7,6 +7,21 @@ import os
 import logging
 from pathlib import Path
 
+# Determine directory of this Python file
+BASE_DIR = Path(__file__).resolve().parent
+
+# Build the log file path in the same directory
+log_path = BASE_DIR / 'app.log'
+
+# Configure logging to write to that file
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s',
+    handlers=[
+        logging.FileHandler(str(log_path), mode='w'),
+    ]
+)
+
 def _json_default(o):
     # handle Enums
     if isinstance(o, Enum):
@@ -15,23 +30,11 @@ def _json_default(o):
 
 
 def main():
-    # Determine directory of this Python file
-    BASE_DIR = Path(__file__).resolve().parent
-
-    # Build the log file path in the same directory
-    log_path = BASE_DIR / 'app.log'
-
-    # Configure logging to write to that file
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s %(message)s',
-        handlers=[
-            logging.FileHandler(str(log_path), mode='w'),
-        ]
-    )
+    logging.info("Python Process started")
     for line in sys.stdin:
         try:
             data = json.loads(line)
+            logging.info(f"Received: {data}")
             if process(data["process"]) == process.THROUGHPUT:
                 result = analyze_throughput(
                     path=data["path"], ap=data["ap"], host=data["host"]
@@ -46,10 +49,6 @@ def main():
             out = {"error": str(traceback.format_exc())}
         # write result as a single JSON line
         print(json.dumps(out, default=_json_default) + "\n", flush=True)
-
-        # Suppress any TShark stderr noise
-        devnull = open(os.devnull, "w")
-        sys.stderr = devnull
 
 
 if __name__ == "__main__":

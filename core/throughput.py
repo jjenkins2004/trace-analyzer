@@ -1,4 +1,3 @@
-from h11 import Data
 import pyshark
 from pyshark.capture.capture import TSharkCrashException
 from dataclasses import dataclass
@@ -80,7 +79,7 @@ class ThroughputAnalysis:
     Attributes:
         avg_rssi (float): Average received signal strength (dBm) across all downlink frames.
         avg_retry (float): Average retry rate across all frames (value between 0 and 1).
-        avg_througput (float): Average throughput (Mbps) across all windows.
+        avg_throughput (float): Average throughput (Mbps) across all windows.
         total_frames (float): Total number of downlink frames processed.
         time_on_air_us (float): Total channel occupancy time (in microseconds) for all data frames and extras (ACKS, preambles, headers, etc).
         avg_rate_ratio (float): Average ratio of observed data rate to theoretical max.
@@ -227,8 +226,9 @@ def compute_downlink_throughput(
         )
 
     # Overall averages (over entire trace / windows)
+    total_frames = sum(p.frames for p in data_points)
     avg_rssi_all = mean(p.rssi for p in data_points if p.rssi != 0)
-    avg_retry_all = sum(p.retries for p in data_points) / len(data_points)
+    avg_retry_all = sum(p.retries for p in data_points) / total_frames
     avg_tp_all = sum(p.throughput * p.time_on_air_us for p in data_points) / sum(
         p.time_on_air_us for p in data_points
     )
@@ -250,7 +250,7 @@ def compute_downlink_throughput(
         avg_rssi=avg_rssi_all,
         avg_retry=avg_retry_all,
         avg_throughput=avg_tp_all,
-        total_frames=sum(p.frames for p in data_points),
+        total_frames=total_frames,
         time_on_air_us=sum(p.time_on_air_us for p in data_points),
         avg_rate_ratio=rate_ratio,
         found_phys=found_phys,
