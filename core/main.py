@@ -7,21 +7,6 @@ import os
 import logging
 from pathlib import Path
 
-# Determine directory of this Python file
-BASE_DIR = Path(__file__).resolve().parent
-
-# Build the log file path in the same directory
-log_path = BASE_DIR / 'app.log'
-
-# Configure logging to write to that file
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(message)s',
-    handlers=[
-        logging.FileHandler(str(log_path), mode='w'),
-    ]
-)
-
 def _json_default(o):
     # handle Enums
     if isinstance(o, Enum):
@@ -30,6 +15,20 @@ def _json_default(o):
 
 
 def main():
+    # Determine directory of this Python file
+    BASE_DIR = Path(__file__).resolve().parent
+
+    # Build the log file path in the same directory
+    log_path = BASE_DIR / 'app.log'
+
+    # Configure logging to write to that file
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(message)s',
+        handlers=[
+            logging.FileHandler(str(log_path), mode='w'),
+        ]
+    )
     for line in sys.stdin:
         try:
             data = json.loads(line)

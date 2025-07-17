@@ -82,7 +82,6 @@ export function createError(message: string, code: Errors): ErrorWithCode {
 // ==============================
 
 export interface SlidingWindowPoint {
-  timestamp: number;
   rssi: number;
   data_rate: number;
   retry_rate: number;
@@ -94,7 +93,7 @@ export interface SlidingWindowPoint {
 export interface ThroughputAnalysis {
   avg_rssi: number;
   avg_retry: number;
-  avg_througput: number;
+  avg_throughput: number;
   total_frames: number;
   time_on_air_us: number;
   avg_rate_ratio: number;

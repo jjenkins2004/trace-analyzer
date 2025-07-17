@@ -322,7 +322,7 @@ const ThroughputPage: React.FC<ThroughputPageProps> = ({ report }) => {
                 throughput.avg_rate_ratio
               )}`}
             >
-              {throughput.avg_througput.toFixed(2)}
+              {throughput.avg_throughput.toFixed(2)}
             </p>
              <p className="mt-4 text-xs text-text-muted">
               Estimated downlink throughput based packet data rate and retry rate.
