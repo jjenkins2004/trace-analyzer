@@ -18,8 +18,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // The pipe, pipe, pipe stuff creates pipes between the python stdIOs with our stdIOs
 const pythonExe =
   process.platform === "win32"
-    ? path.join(__dirname, "..", "core", ".venv", "Scripts", "python.exe")
-    : path.join(__dirname, "..", "core", ".venv", "bin", "python");
+    ? path.join(__dirname, "..", "core", ".venv", "Scripts", "python3.13.exe")
+    : path.join(__dirname, "..", "core", ".venv", "bin", "python3.13");
 import fs from "fs";
 if (!fs.existsSync(pythonExe)) {
   throw new Error(
@@ -29,6 +29,13 @@ if (!fs.existsSync(pythonExe)) {
 const proc = spawn(pythonExe, [path.join(__dirname, "../core/main.py")], {
   stdio: ["pipe", "pipe", "pipe"],
 });
+proc.stderr.on("data", chunk => {
+  console.error("Python stderr:", chunk.toString());
+});
+proc.on("exit", (code, signal) => {
+  console.error(`Python exited (code=${code}, signal=${signal})`);
+});
+
 
 // Create a readline interface on proc.stdout (where our python process will write to),
 // which makes sure what we get is the full message until a '\n'

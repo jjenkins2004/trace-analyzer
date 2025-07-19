@@ -54,13 +54,13 @@ if __name__ == "__main__":
         ]
     )
 
-    result = analyze_throughput(
-        path="test_pcap/large-aggregate.pcap",
-        ap="e8:1b:69:29:de:c0",
-        host="28:02:2e:28:87:4f",
-    )
+    # result = analyze_throughput(
+    #     path="test_pcap/large-aggregate.pcap",
+    #     ap="e8:1b:69:29:de:c0",
+    #     host="28:02:2e:28:87:4f",
+    # )
 
-    # result = analyze_density(path="test_pcap/dense-sparse-dense.pcap")
+    result = analyze_density(path="test_pcap/dense-sparse-dense.pcap")
 
     pprint.pprint(result, width=80)
 

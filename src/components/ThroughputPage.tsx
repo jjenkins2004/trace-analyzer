@@ -72,7 +72,8 @@ function getDiagnosis(
   // categorize inputs
   const rssiCat = rssi >= -50 ? "high" : rssi >= -70 ? "med" : "low";
   const rateCat = avgRateRatio >= 0.5 ? "high" : "low";
-  const retryCat = retryRate <= 0.25 ? "low" : retryRate <= 0.5 ? "med" : "high";
+  const retryCat =
+    retryRate <= 0.25 ? "low" : retryRate <= 0.5 ? "med" : "high";
 
   // map combos to diagnosis
   if (rssiCat === "high" && rateCat === "high" && retryCat === "low") {
@@ -309,8 +310,8 @@ const ThroughputPage: React.FC<ThroughputPageProps> = ({ report }) => {
               {diagnosis.message}
             </div>
             <p className="mt-4 text-xs text-text-muted">
-              Throughput is measured against the maximum possible rate
-              given current link characteristics.
+              Throughput is measured against the maximum possible rate given
+              current link characteristics.
             </p>
           </div>
 
@@ -322,10 +323,11 @@ const ThroughputPage: React.FC<ThroughputPageProps> = ({ report }) => {
                 throughput.avg_rate_ratio
               )}`}
             >
-              {throughput.avg_throughput.toFixed(2)}
+              {throughput.throughput_stats.mean.toFixed(2)}
             </p>
-             <p className="mt-4 text-xs text-text-muted">
-              Estimated downlink throughput based packet data rate and retry rate.
+            <p className="mt-4 text-xs text-text-muted">
+              Estimated throughput based packet data, packet duration, and retry
+              rate.
             </p>
           </div>
         </div>
@@ -363,6 +365,60 @@ const ThroughputPage: React.FC<ThroughputPageProps> = ({ report }) => {
             <p className="text-sm text-text-muted">Time on Air (ms)</p>
             <p className="text-xl font-medium">
               {(throughput.time_on_air_us / 1000).toFixed(2)}
+            </p>
+          </div>
+        </div>
+      </section>
+      {/* Throughput Distribution */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-semibold text-primary-light mb-4">
+          Throughput Distribution (Mbps)
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+          {/* Min */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">Min</p>
+            <p className="text-xl font-medium">
+              {throughput.throughput_stats.min.toFixed(2)}
+            </p>
+          </div>
+          {/* Mean */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">Mean</p>
+            <p className="text-xl font-medium">
+              {throughput.throughput_stats.mean.toFixed(2)}
+            </p>
+          </div>
+          {/* Median */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">Median</p>
+            <p className="text-xl font-medium">
+              {throughput.throughput_stats.median.toFixed(2)}
+            </p>
+          </div>
+          {/* 75th Percentile */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">
+              75<sup>th</sup> Percentile
+            </p>
+            <p className="text-xl font-medium">
+              {throughput.throughput_stats.p75.toFixed(2)}
+            </p>
+          </div>
+          {/* 95th Percentile */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">
+              95<sup>th</sup> Percentile
+            </p>
+            <p className="text-xl font-medium">
+              {throughput.throughput_stats.p95.toFixed(2)}
+            </p>
+          </div>
+          {/* Max */}
+          <div className="bg-background-dark p-4 rounded-lg">
+            <p className="text-sm text-text-muted">Max</p>
+            <p className="text-xl font-medium">
+              {throughput.throughput_stats.max.toFixed(2)}
             </p>
           </div>
         </div>
@@ -428,19 +484,6 @@ const OverlayGraph: React.FC<OverlayGraphProps> = ({ data, left, right }) => {
           margin={{ bottom: 20, left: 30, right: 30, top: 40 }}
         >
           <CartesianGrid stroke="#444" strokeDasharray="3 3" />
-          <XAxis
-            dataKey="id"
-            type="number"
-            scale="linear"
-            domain={[0, "dataMax"]}
-            tickFormatter={(id) => id + 1}
-            label={{
-              value: "Packet Number",
-              position: "bottom", // insideBottom, bottom, top, insideTop
-              offset: 5, // adjust spacing
-              fill: "var(--color-text-muted)",
-            }}
-          />
           {renderMetric("left", left)}
           {renderMetric("right", right)}
         </LineChart>

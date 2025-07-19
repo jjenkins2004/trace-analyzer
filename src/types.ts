@@ -90,15 +90,24 @@ export interface SlidingWindowPoint {
   avg_time_on_air_us: number;
 }
 
+export interface ThroughputStats {
+  min: number;
+  max: number;
+  median: number;
+  mean: number;
+  p95: number;
+  p75: number;
+}
+
 export interface ThroughputAnalysis {
   avg_rssi: number;
   avg_retry: number;
-  avg_throughput: number;
   total_frames: number;
   time_on_air_us: number;
   avg_rate_ratio: number;
   found_phys: string[];
   points: SlidingWindowPoint[];
+  throughput_stats: ThroughputStats;
 }
 
 export interface ThroughputReport {
@@ -141,6 +150,9 @@ export interface Bin {
   total_frames_in_interval: number;
   avg_rssi_in_interval: number;
   density_rating_in_interval: number;
+  N_eff: number;
+  U: number;
+  D: number;
   start_time: number;
   end_time: number;
 }
@@ -152,6 +164,9 @@ export interface DensityAnalysis {
   total_frames: number;
   avg_rssi: number;
   density_rating: number;
+  N_eff: number;
+  U: number;
+  D: number;
 }
 
 export interface DensityReport {

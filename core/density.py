@@ -1,13 +1,35 @@
+from ctypes.macholib.framework import framework_info
+from networkx import density
 import pyshark
 from pyshark.capture.capture import TSharkCrashException
 from dataclasses import dataclass
 from enum import Enum
 import math
+import logging
 
 
 class DeviceType(Enum):
     CLIENT = 0
     ACCESS_POINT = 1
+
+
+class Type(Enum):
+    GHZ_2 = 0
+    GHZ_5 = 1
+
+
+@dataclass
+class Frame:
+    """
+    Represents just a general frame, which is used to find our total airtime and sustained data rates in time bins.
+
+    airtime_us (int): the duration of the frame in microseconds
+    size_bits (int): total size in bits of that frame
+    """
+
+    timestamp: float
+    airtime_us: int
+    size_bits: int
 
 
 @dataclass
@@ -35,14 +57,12 @@ class DeviceInfo:
     Attributes:
         sa (str): Source MAC address of the access point (BSSID).
         total_frames (int): Total frames found for this device in an interval.
-        total_rssi (float): Total rssi added in dBm.
         score (float): Contributing score of this device for an interval for the overall density metric.
     """
 
     sa: str
     total_frames: int
     total_rssi: float
-    total_rssi_normalized: float
     score: float
 
 
@@ -57,6 +77,9 @@ class Bin:
         total_frames_in_interval (int): Total frames captured in this interval.
         avg_rssi_in_interval (float): Average rssi across all frames in this interval.
         density_rating_in_interval (float): Computed network density score (0-1).
+        N_eff (float): Our weighed AP score.
+        U (float): Our busy time score.
+        D (float): Our traffic score.
         start_time (int): Start timestamp (in seconds) of this interval relative to capture start.
         end_time (int): End timestamp (in seconds) of this interval relative to capture start.
     """
@@ -66,6 +89,9 @@ class Bin:
     total_frames_in_interval: int
     avg_rssi_in_interval: float
     density_rating_in_interval: float
+    N_eff: float
+    U: float
+    D: float
     start_time: float
     end_time: float
 
@@ -82,6 +108,9 @@ class DensityAnalysis:
         total_frames (int): Total number of frames captured throughout the trace.
         avg_rssi (float): Time-weighted average rssi across all bins.
         density_rating (float): Time-weighted Overall density score (normalized 0–1) for all bins.
+        N_eff (float): Our weighed AP score.
+        U (float): Our busy time score.
+        D (float): Our traffic score.
     """
 
     interval: int
@@ -90,26 +119,40 @@ class DensityAnalysis:
     total_frames: int
     avg_rssi: float
     density_rating: float
+    N_eff: float
+    U: float
+    D: float
+
+
+"""
+First value is for 2.4Ghz, second value is for 5Ghz
+"""
+R_MIN = (-86.69, -89.37)
+N_MAX = (75.24, 48.46)  # max weighted AP score
+F_CUTOFF = (27.2, 210)
+U_MAX = (34.04, 22.71)  # busy %
+T_MAX = (7.67, 14.24)  # mbps
 
 
 # For now we will calculate a density for the entire trace, but will break it up into smaller units of time
 def network_density(path: str):
 
     # Extract all frames
-    frames = extract(path=path)
+    all_frames, beacon_frames, band = extract(path=path)
 
     # Quit here if no frames were extracted
-    if not frames:
+    if not beacon_frames:
         raise ValueError("No frames extracted")
 
     # Find the total lifespan of the trace, best time interval for each bin, and num of bins
-    lifespan = frames[-1].timestamp
+    lifespan = all_frames[-1].timestamp
     interval_s = find_time_interval(lifespan_s=lifespan)
     num_bins = math.ceil(lifespan / interval_s)
 
     all_bins: list[Bin] = []
     found_devices = set()
     frame_idx = 0
+    beacon_idx = 0
 
     # Loop through the number of bins we have
     for b in range(num_bins):
@@ -118,22 +161,37 @@ def network_density(path: str):
         bin_start = b * interval_s
         bin_end = lifespan if b == num_bins - 1 else bin_start + interval_s
 
-        devices: dict[str, DeviceInfo] = {}
-
-        # Only go through frames that are in this time bin
-        while frame_idx < len(frames) and frames[frame_idx].timestamp <= bin_end:
-            frame = frames[frame_idx]
+        # Parse through general frames for this bin
+        total_airtime_us = 0
+        total_bits = 0
+        while (
+            frame_idx < len(all_frames) and all_frames[frame_idx].timestamp <= bin_end
+        ):
+            total_airtime_us += all_frames[frame_idx].airtime_us
+            total_bits += all_frames[frame_idx].size_bits
             frame_idx += 1
+        bin_duration_s = bin_end - bin_start
+        total_airtime_s = total_airtime_us / 1e6
+        sustained_bitrate_bps = total_bits / bin_duration_s
+        sustained_bitrate_mbps = sustained_bitrate_bps / 1e6
+        percent_airtime = (total_airtime_s / bin_duration_s) * 100
+
+        # Parse through beacon frames for this bin
+        devices: dict[str, DeviceInfo] = {}
+        while (
+            beacon_idx < len(beacon_frames)
+            and beacon_frames[beacon_idx].timestamp <= bin_end
+        ):
+            frame = beacon_frames[beacon_idx]
+            beacon_idx += 1
 
             # Initialize if first time seeing this BSSID
             if frame.sa not in devices:
                 found_devices.add(frame.sa)
                 devices[frame.sa] = DeviceInfo(
                     sa=frame.sa,
-                    # type=frame.type,
                     total_frames=1,
                     total_rssi=frame.rssi,
-                    total_rssi_normalized=get_normalized_rssi(frame.rssi),
                     score=0,
                 )
             else:
@@ -141,20 +199,36 @@ def network_density(path: str):
                 info = devices[frame.sa]
                 info.total_frames += 1
                 info.total_rssi += frame.rssi
-                info.total_rssi_normalized += get_normalized_rssi(frame.rssi)
 
         # Finished going through all devices for this bin, now calculate bin level values
-        total_rssi: float = 0
+        total_rssi: float = 0.0
         total_frames: int = 0
-        total_score: float = 0
+        total_score: float = 0.0
+
+        # Traffic and airtime parts of our density score
+        D = min(1, math.sqrt(sustained_bitrate_mbps / T_MAX[band.value]))
+        U = min(1, percent_airtime / U_MAX[band.value])
 
         if devices:
             # Calculate scores for each device and update global metrics
             for value in devices.values():
-                value.score = value.total_rssi_normalized / value.total_frames
-                total_score += value.score
+                # Only contribute to the score if it passes our cutoff
+                if (value.total_frames / (bin_end - bin_start)) * 60 >= F_CUTOFF[
+                    band.value
+                ]:
+                    avg_rssi = value.total_rssi / value.total_frames
+                    avg_normalized = get_normalized_rssi(rssi=avg_rssi, type=band)
+                    value.score = avg_normalized
+                    total_score += value.score
+
                 total_rssi += value.total_rssi
                 total_frames += value.total_frames
+
+            # Weighted AP score
+            N_eff = getApRating(total_score=total_score, type=band)
+
+            # Final density score
+            density_score = 0.5 * N_eff + 0.35 * U + 0.15 * D
 
             all_bins.append(
                 Bin(
@@ -162,7 +236,10 @@ def network_density(path: str):
                     total_devices_in_interval=len(devices),
                     total_frames_in_interval=total_frames,
                     avg_rssi_in_interval=total_rssi / (total_frames),
-                    density_rating_in_interval=getRating(total_score=total_score),
+                    density_rating_in_interval=density_score,
+                    N_eff=N_eff,
+                    D=D,
+                    U=U,
                     start_time=bin_start,
                     end_time=bin_end,
                 )
@@ -174,18 +251,22 @@ def network_density(path: str):
                     total_devices_in_interval=0,
                     total_frames_in_interval=0,
                     avg_rssi_in_interval=0,
-                    density_rating_in_interval=0,
+                    density_rating_in_interval=0.35 * U + 0.15 * D,
+                    N_eff=0,
+                    U=U,
+                    D=D,
                     start_time=bin_start,
                     end_time=bin_end,
                 )
             )
 
+    # Now for overall density metrics
     # Return a complete analysis based on all time intervals
     return DensityAnalysis(
         interval=interval_s,
         bins=all_bins,
         total_devices=len(found_devices),
-        total_frames=len(frames),
+        total_frames=len(beacon_frames),
         avg_rssi=sum(
             bin.avg_rssi_in_interval * (bin.end_time - bin.start_time) / lifespan
             for bin in all_bins
@@ -194,15 +275,16 @@ def network_density(path: str):
             bin.density_rating_in_interval * (bin.end_time - bin.start_time) / lifespan
             for bin in all_bins
         ),
+        N_eff=sum(
+            bin.N_eff * (bin.end_time - bin.start_time) / lifespan for bin in all_bins
+        ),
+        U=sum(bin.U * (bin.end_time - bin.start_time) / lifespan for bin in all_bins),
+        D=sum(bin.D * (bin.end_time - bin.start_time) / lifespan for bin in all_bins),
     )
 
 
-def get_normalized_rssi(rssi: float):
-
-    # The lowest and highest dbm that we will count, that way strong signals won't saturate our score too much
-    floor, ceiling = -85, -40
-
-    return max(0, min(rssi - floor, ceiling - floor))
+def get_normalized_rssi(rssi: float, type: Type):
+    return math.sqrt(max(0, (rssi - R_MIN[type.value])))
 
 
 def find_time_interval(lifespan_s: float) -> int:
@@ -227,60 +309,53 @@ def find_time_interval(lifespan_s: float) -> int:
     return best_interval
 
 
-"""
-Completely hypotetical upperbound for network density. Hypothetical 30ft x 30ft room with 5 access points and each giving an
-average of -45 dBm signal strength per AP. So ceiling score would be 5*(-45-(-85)) = 200.
-"""
-max_score = 200
-
-
-def getRating(total_score: float) -> float:
+def getApRating(total_score: float, type: Type) -> float:
     if total_score <= 0:
         return 0.0
-    return min(total_score / max_score, 1.0)
+    return min(1.0, total_score / N_MAX[type.value])
 
 
-def extract(path: str) -> list[BeaconFrame]:
+def extract(path: str) -> tuple[list[Frame], list[BeaconFrame], Type]:
     # Load beacon frames and probe requests into memory
     cap = pyshark.FileCapture(
         path,
         keep_packets=False,
         use_json=True,
-        display_filter="wlan.fc.type == 0 && (wlan.fc.type_subtype == 8)",
     )
 
-    frames: list[BeaconFrame] = []
+    all_frames: list[Frame] = []
+    beacon_frames: list[BeaconFrame] = []
 
     first = True
     start_time: float = 0.0
+    band: Type = Type.GHZ_2
 
     # Extract relevant data
     failed_packets = 0
     total_packets = 0
     try:
         for pkt in cap:
+            if total_packets % 10_000 == 0:
+                logging.info(f"Total parsed: {total_packets}")
             failed = False
+            total_packets += 1
 
             if first:
                 try:
                     start_time = float(pkt.sniff_timestamp)
+                    freq = int(pkt.radiotap.freq)
+                    if 2400 <= freq <= 2500:
+                        band = Type.GHZ_2
+                    else:
+                        band = Type.GHZ_5
                 except (AttributeError, ValueError, TypeError):
                     start_time = 0.0
                 first = False
 
-            # Source Address, same as BSSID for APs
-            try:
-                sa = pkt.wlan.sa
-            except (AttributeError, ValueError):
-                sa = "Unknown"
-
+            # First extract airtime and length, which we need from all frames
             radio = getattr(pkt, "wlan_radio", None)
 
-            # Signal Strength
-            try:
-                rssi = float(radio.signal_dbm)
-            except (AttributeError, ValueError, TypeError):
-                failed = True
+            length_bits = int(pkt.length) * 8
 
             # Timestamp relative to first packet
             try:
@@ -288,9 +363,48 @@ def extract(path: str) -> list[BeaconFrame]:
             except (AttributeError, ValueError, TypeError):
                 failed = True
 
-            total_packets += 1
+            # Some packets dont have a duration field, we fall back if they have a rate field, otherwise just ignore it.
+            # < 0.01% dont have both so the difference will be very negligable
+            airtime_us = 0
+            if hasattr(radio, "duration"):
+                airtime_us = int(radio.duration)
+            elif hasattr(radio, "rate"):
+                # Fallback: estimate on air time based on data rate and a standard preamble
+                rate_mbps = float(radio.rate)
+                preamble_us = 20  # 16 µs preamble + 4 µs SIG
+                data_us = (length_bits / (rate_mbps * 1e6)) * 1e6
+                airtime_us = int(preamble_us + data_us)
+
             if not failed:
-                frames.append(
+                all_frames.append(
+                    Frame(
+                        timestamp=timestamp,
+                        airtime_us=airtime_us,
+                        size_bits=length_bits,
+                    )
+                )
+            else:
+                failed_packets += 1
+                continue
+
+            # Only continue if this is a beacon frame
+            if not (pkt.wlan.fc_tree.type == "0" and pkt.wlan.fc_tree.subtype == "8"):
+                continue
+
+            # Source Address, same as BSSID for APs
+            try:
+                sa = pkt.wlan.sa
+            except (AttributeError, ValueError):
+                sa = "Unknown"
+
+            # Signal Strength
+            try:
+                rssi = float(radio.signal_dbm)
+            except (AttributeError, ValueError, TypeError):
+                failed = True
+
+            if not failed:
+                beacon_frames.append(
                     BeaconFrame(
                         sa=sa,
                         rssi=rssi,
@@ -305,7 +419,8 @@ def extract(path: str) -> list[BeaconFrame]:
             raise ValueError("Frames did not have necessary fields")
 
         # Ensure results are sorted by timestamp
-        frames.sort(key=lambda f: f.timestamp)
+        beacon_frames.sort(key=lambda f: f.timestamp)
+        all_frames.sort(key=lambda f: f.timestamp)
 
     except TSharkCrashException:
         pass
@@ -314,5 +429,4 @@ def extract(path: str) -> list[BeaconFrame]:
             cap.close()
         except TSharkCrashException:
             pass
-
-    return frames
+    return all_frames, beacon_frames, band

@@ -2,7 +2,7 @@ import pyshark
 from pyshark.capture.capture import TSharkCrashException
 from dataclasses import dataclass
 from collections import deque
-from statistics import mean
+from statistics import mean, median, quantiles
 import logging
 import time as timer
 
@@ -72,6 +72,16 @@ class SlidingWindowPoint:
 
 
 @dataclass
+class ThroughputStats:
+    min: float
+    max: float
+    median: float
+    mean: float
+    p95: float
+    p75: float
+
+
+@dataclass
 class ThroughputAnalysis:
     """
     Overall analysis of Wi-Fi throughput performance over a trace.
@@ -79,7 +89,6 @@ class ThroughputAnalysis:
     Attributes:
         avg_rssi (float): Average received signal strength (dBm) across all downlink frames.
         avg_retry (float): Average retry rate across all frames (value between 0 and 1).
-        avg_throughput (float): Average throughput (Mbps) across all windows.
         total_frames (float): Total number of downlink frames processed.
         time_on_air_us (float): Total channel occupancy time (in microseconds) for all data frames and extras (ACKS, preambles, headers, etc).
         avg_rate_ratio (float): Average ratio of observed data rate to theoretical max.
@@ -89,12 +98,12 @@ class ThroughputAnalysis:
 
     avg_rssi: float
     avg_retry: float
-    avg_throughput: float
     total_frames: float
     time_on_air_us: float
     avg_rate_ratio: float
     found_phys: list[str]
     points: list[SlidingWindowPoint]
+    throughput_stats: ThroughputStats
 
 
 def wifi_throughput(path: str, ap_mac: str, host_mac: str):
@@ -120,8 +129,8 @@ def wifi_throughput(path: str, ap_mac: str, host_mac: str):
 TRIES_PER_RETRY = 2
 SIFS = 16
 ACK = 37 + SIFS
-EXTRA_TIME = ACK + SIFS
-BLOCK_ACK = 32 + SIFS
+FRAME_EXTRA = ACK + SIFS
+AGGREGATE_EXTRA = SIFS + 32 + SIFS
 
 
 def pre_process(
@@ -161,11 +170,12 @@ def pre_process(
         for f in window:
             if f.aggregate_id:
                 extra_frame_time = (
-                    SIFS
-                    + BLOCK_ACK * f.time_on_air_us / aggregate_groups[f.aggregate_id]
+                    AGGREGATE_EXTRA
+                    * f.time_on_air_us
+                    / aggregate_groups[f.aggregate_id]
                 )
             else:
-                extra_frame_time = EXTRA_TIME
+                extra_frame_time = FRAME_EXTRA
             total_time_us += f.time_on_air_us + extra_frame_time
 
         # Compute throughput for this window
@@ -229,9 +239,6 @@ def compute_downlink_throughput(
     total_frames = sum(p.frames for p in data_points)
     avg_rssi_all = mean(p.rssi for p in data_points if p.rssi != 0)
     avg_retry_all = sum(p.retries for p in data_points) / total_frames
-    avg_tp_all = sum(p.throughput * p.time_on_air_us for p in data_points) / sum(
-        p.time_on_air_us for p in data_points
-    )
     rate_ratio = mean(p.relative_data_rate_ratio for p in data_points)
 
     # All found Wifi standards used
@@ -245,16 +252,34 @@ def compute_downlink_throughput(
     # Fix holes in our data
     points = fill_zero_rssis(points=points)
 
+    # Compute overall stats
+    tp_values = [pt.throughput for pt in points]
+
+    tp_min = min(tp_values)
+    tp_max = max(tp_values)
+    tp_mean = sum(p.throughput * p.avg_time_on_air_us for p in points) / sum(
+        p.avg_time_on_air_us for p in points
+    )
+    tp_median = median(tp_values)
+
+    # quantiles(..., n=100) returns 99 cut-points: index 74→75th, 94→95th
+    tp_quants = quantiles(tp_values, n=100)
+    tp_75 = tp_quants[74]
+    tp_95 = tp_quants[94]
+    stats = ThroughputStats(
+        min=tp_min, max=tp_max, mean=tp_mean, median=tp_median, p95=tp_95, p75=tp_75
+    )
+
     # Final Analysis object
     return ThroughputAnalysis(
         avg_rssi=avg_rssi_all,
         avg_retry=avg_retry_all,
-        avg_throughput=avg_tp_all,
         total_frames=total_frames,
         time_on_air_us=sum(p.time_on_air_us for p in data_points),
         avg_rate_ratio=rate_ratio,
         found_phys=found_phys,
         points=points,
+        throughput_stats=stats,
     )
 
 
@@ -331,6 +356,8 @@ def extract(
                 aggregate_groups[agg_id] = (
                     aggregate_groups.get(agg_id, 0) + time_on_air_us
                 )
+            else:
+                agg_id = None
 
             # Number of payload bits
             try:
