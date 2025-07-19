@@ -39,6 +39,15 @@ class DataFrame:
 
 @dataclass
 class DataPoint:
+    """
+    A single data point that will be used for our sliding windows. 
+    Basically an average of several frames, we enforce a maximum of 1000 data points. 
+    This is necessary because computing each slidingwindow point takes a lot of compute vs a data point.
+    So preprocessing these averaging data points first saves a ton of processing time especially if
+    there are a lot of frames. Also this limits our total points to < 1000 so our frontend doesn't blow
+    up from rendering so many data points.
+    """
+
     frames: int
     retries: int
     rssi: float
@@ -73,6 +82,9 @@ class SlidingWindowPoint:
 
 @dataclass
 class ThroughputStats:
+    """
+    Statistics for the overall throughput. These are calculated from all of our sliding window points.
+    """
     min: float
     max: float
     median: float
