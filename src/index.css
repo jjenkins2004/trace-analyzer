@@ -43,6 +43,7 @@
   --color-text-rose: #f472b6;
   --color-text-yellow: #facc15;
   --color-text-orange: #fb923c;
+  --color-text-cyan: #06b6d4;
 }
 
 @layer utilities {

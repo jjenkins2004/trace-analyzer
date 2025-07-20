@@ -22,11 +22,15 @@ class Frame:
     Represents just a general frame, which is used to find our total airtime and sustained data rates in time bins.
 
     airtime_us (int): the duration of the frame in microseconds
+    retry (int): Whether the frame was a retry
+    data_frame (int): Whether this is a data frame
     size_bits (int): total size in bits of that frame
     """
 
     timestamp: float
     airtime_us: int
+    retry: int
+    data_frame: int
     size_bits: int
 
 
@@ -79,6 +83,7 @@ class Bin:
         N_eff (float): Our weighed AP score.
         U (float): Our busy time score.
         D (float): Our traffic score.
+        retry_rate (float): retry rate for this time bin
         start_time (float): Start timestamp (in seconds) of this interval relative to capture start.
         end_time (float): End timestamp (in seconds) of this interval relative to capture start.
     """
@@ -92,6 +97,7 @@ class Bin:
     N_eff: float
     U: float
     D: float
+    retry_rate: float
     start_time: float
     end_time: float
 
@@ -107,6 +113,7 @@ class DensityAnalysis:
         total_devices (int): Total number of unique source devices (APs) seen across the capture.
         total_frames (int): Total number of frames captured throughout the trace.
         total_beacon_frames (int): Total number of beacon frames in whole trace.
+        retry_rate (float): total average retry rate
         avg_beacon_rssi (float): Time-weighted average rssi of beacon frames across all bins.
         density_rating (float): Time-weighted Overall density score (normalized 0–1) for all bins.
         N_eff (float): Our weighed AP score.
@@ -119,6 +126,7 @@ class DensityAnalysis:
     total_devices: int
     total_frames: int
     total_beacon_frames: int
+    retry_rate: float
     avg_beacon_rssi: float
     density_rating: float
     N_eff: float
@@ -167,18 +175,24 @@ def network_density(path: str):
         # Parse through general frames for this bin
         total_airtime_us = 0
         total_bits = 0
+        total_retries = 0
+        total_data = 0
         while (
             frame_idx < len(all_frames) and all_frames[frame_idx].timestamp <= bin_end
         ):
             total_airtime_us += all_frames[frame_idx].airtime_us
             total_bits += all_frames[frame_idx].size_bits
+            total_retries += all_frames[frame_idx].retry
+            total_data += all_frames[frame_idx].data_frame
             frame_idx += 1
             total_frames += 1
+
         bin_duration_s = bin_end - bin_start
         total_airtime_s = total_airtime_us / 1e6
         sustained_bitrate_bps = total_bits / bin_duration_s
         sustained_bitrate_mbps = sustained_bitrate_bps / 1e6
         percent_airtime = (total_airtime_s / bin_duration_s) * 100
+        retry_rate = total_retries / total_data * 100
 
         # Parse through beacon frames for this bin
         devices: dict[str, DeviceInfo] = {}
@@ -245,6 +259,7 @@ def network_density(path: str):
                     N_eff=N_eff,
                     D=D,
                     U=U,
+                    retry_rate=retry_rate,
                     start_time=bin_start,
                     end_time=bin_end,
                 )
@@ -261,6 +276,7 @@ def network_density(path: str):
                     N_eff=0,
                     U=U,
                     D=D,
+                    retry_rate=retry_rate,
                     start_time=bin_start,
                     end_time=bin_end,
                 )
@@ -274,6 +290,10 @@ def network_density(path: str):
         total_devices=len(found_devices),
         total_frames=len(all_frames),
         total_beacon_frames=len(beacon_frames),
+        retry_rate=sum(
+            bin.retry_rate * (bin.end_time - bin.bin_start) / lifespan
+            for bin in all_bins
+        ),
         avg_beacon_rssi=sum(
             bin.avg_beacon_rssi_in_interval * (bin.end_time - bin.start_time) / lifespan
             for bin in all_bins
@@ -344,6 +364,8 @@ def extract(path: str) -> tuple[list[Frame], list[BeaconFrame], Type]:
         for pkt in cap:
             if total_packets % 10_000 == 0:
                 logging.info(f"Total parsed: {total_packets}")
+            if total_packets >= 100_000:
+                break
             failed = False
             total_packets += 1
 
@@ -359,10 +381,19 @@ def extract(path: str) -> tuple[list[Frame], list[BeaconFrame], Type]:
                     start_time = 0.0
                 first = False
 
-            # First extract airtime and length, which we need from all frames
+            # First extract airtime retry, and length, which we need from all frames
             radio = getattr(pkt, "wlan_radio", None)
 
             length_bits = int(pkt.length) * 8
+
+            try:
+                retry = int(pkt.wlan.fc_tree.flags_tree.retry)
+            except (AttributeError, ValueError, TypeError):
+                retry = 0
+
+            data_frame = 0
+            if pkt.wlan.fc_tree.type == "2":
+                data_frame = 1
 
             # Timestamp relative to first packet
             try:
@@ -387,6 +418,8 @@ def extract(path: str) -> tuple[list[Frame], list[BeaconFrame], Type]:
                     Frame(
                         timestamp=timestamp,
                         airtime_us=airtime_us,
+                        retry=retry,
+                        data_frame=data_frame,
                         size_bits=length_bits,
                     )
                 )

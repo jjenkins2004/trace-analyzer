@@ -151,6 +151,7 @@ export interface Bin {
   total_beacon_frames_in_interval: number;
   avg_beacon_rssi_in_interval: number;
   density_rating_in_interval: number;
+  retry_rate: number
   N_eff: number;
   U: number;
   D: number;
@@ -165,6 +166,7 @@ export interface DensityAnalysis {
   total_frames: number;
   total_beacon_frames: number;
   avg_beacon_rssi: number;
+  retry_rate: number;
   density_rating: number;
   N_eff: number;
   U: number;

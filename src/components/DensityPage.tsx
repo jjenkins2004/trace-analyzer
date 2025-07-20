@@ -26,6 +26,7 @@ enum GraphMetric {
   frames = "Total Frames",
   beacon_frames = "Beacon Frames",
   devices = "Advertising Devices",
+  retryRate = "Retry Rate (%)",
   none = "None",
 }
 
@@ -75,6 +76,11 @@ const GraphMetricConfig: Record<GraphMetric, MetricConfig> = {
     dataKey: "total_devices_in_interval",
     unit: "count",
     color: "var(--color-text-orange)",
+  },
+  [GraphMetric.retryRate]: {
+    dataKey: "retry_rate",
+    unit: "%",
+    color: "var(--color-text-cyan)",
   },
   [GraphMetric.none]: {
     dataKey: "",
@@ -329,9 +335,9 @@ const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
             <p className="text-xl font-medium">{density.total_frames}</p>
           </div>
           <div className="bg-background-dark p-4 rounded-lg">
-            <p className="text-sm text-text-muted">Avg Advertiser RSSI</p>
+            <p className="text-sm text-text-muted">Avg Retry Rate</p>
             <p className="text-xl font-medium">
-              {density.avg_beacon_rssi.toFixed(2)}
+              {density.retry_rate.toFixed(2)}
             </p>
           </div>
         </div>
