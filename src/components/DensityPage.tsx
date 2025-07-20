@@ -515,6 +515,11 @@ const OverlayGraph: React.FC<OverlayGraphProps> = ({ data, left, right }) => {
               const val = data[idx].point.end_time;
               return val.toFixed(2).replace(/\.?0+$/, "");
             }}
+            label={{
+              value: "Time (s)",
+              position: "bottom",
+              fill: "var(--color-text-muted)",
+            }}
             interval={1}
           />
           <Tooltip content={CustomTooltip} />
