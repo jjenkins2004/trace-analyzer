@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { HashRouter, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Upload from "./screens/Upload";
-import Compare from "./screens/Compare";
+import Analyze from "./screens/Analyze";
 import Reports from "./screens/Reports";
 
 import { ReportData } from "./types";
@@ -34,7 +34,7 @@ const PersistedApp: React.FC = () => {
 
   const onReportClick = (report: ReportData) => {
     setShownReport(report);
-    navigate("/compare");
+    navigate("/analyze");
   };
 
   return (
@@ -44,12 +44,12 @@ const PersistedApp: React.FC = () => {
       <div className="flex-1 flex flex-col justify-center items-center min-h-0">
         <div className="max-h-full w-full overflow-y-scroll">
           <div className={location.pathname === "/" ? "block" : "hidden"}>
-            <Upload setReports={setGlobalReports} />
+            <Upload setReports={setGlobalReports} onShowReport={onReportClick}/>
           </div>
           <div
-            className={location.pathname === "/compare" ? "block" : "hidden"}
+            className={location.pathname === "/analyze" ? "block" : "hidden"}
           >
-            <Compare shownReport={shownReport} />
+            <Analyze shownReport={shownReport} />
           </div>
           <div
             className={location.pathname === "/reports" ? "block" : "hidden"}

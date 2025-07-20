@@ -1,5 +1,3 @@
-from ctypes.macholib.framework import framework_info
-from networkx import density
 import pyshark
 from pyshark.capture.capture import TSharkCrashException
 from dataclasses import dataclass
@@ -75,19 +73,21 @@ class Bin:
         devices (list[DeviceInfo]): List of unique devices observed in this interval.
         total_devices_in_interval (int): Number of distinct devices detected.
         total_frames_in_interval (int): Total frames captured in this interval.
-        avg_rssi_in_interval (float): Average rssi across all frames in this interval.
+        total_beacon_frames_in_interval (int): Total number of beacon frames
+        avg_beacon_rssi_in_interval (float): Average rssi across all beacon frames in this interval.
         density_rating_in_interval (float): Computed network density score (0-1).
         N_eff (float): Our weighed AP score.
         U (float): Our busy time score.
         D (float): Our traffic score.
-        start_time (int): Start timestamp (in seconds) of this interval relative to capture start.
-        end_time (int): End timestamp (in seconds) of this interval relative to capture start.
+        start_time (float): Start timestamp (in seconds) of this interval relative to capture start.
+        end_time (float): End timestamp (in seconds) of this interval relative to capture start.
     """
 
     devices: list[DeviceInfo]
     total_devices_in_interval: int
     total_frames_in_interval: int
-    avg_rssi_in_interval: float
+    total_beacon_frames_in_interval: int
+    avg_beacon_rssi_in_interval: float
     density_rating_in_interval: float
     N_eff: float
     U: float
@@ -102,22 +102,24 @@ class DensityAnalysis:
     Summary of the network density analysis over the entire packet capture.
 
     Attributes:
-        interval (int): Duration (in seconds) of each bin.
+        interval (float): Duration (in seconds) of each bin.
         bins (list[Bin]): List of bin-level statistics computed over time intervals.
         total_devices (int): Total number of unique source devices (APs) seen across the capture.
         total_frames (int): Total number of frames captured throughout the trace.
-        avg_rssi (float): Time-weighted average rssi across all bins.
+        total_beacon_frames (int): Total number of beacon frames in whole trace.
+        avg_beacon_rssi (float): Time-weighted average rssi of beacon frames across all bins.
         density_rating (float): Time-weighted Overall density score (normalized 0–1) for all bins.
         N_eff (float): Our weighed AP score.
         U (float): Our busy time score.
         D (float): Our traffic score.
     """
 
-    interval: int
+    interval: float
     bins: list[Bin]
     total_devices: int
     total_frames: int
-    avg_rssi: float
+    total_beacon_frames: int
+    avg_beacon_rssi: float
     density_rating: float
     N_eff: float
     U: float
@@ -156,6 +158,7 @@ def network_density(path: str):
 
     # Loop through the number of bins we have
     for b in range(num_bins):
+        total_frames: int = 0
 
         # Find the start and end time of the bin relative to capture start
         bin_start = b * interval_s
@@ -170,6 +173,7 @@ def network_density(path: str):
             total_airtime_us += all_frames[frame_idx].airtime_us
             total_bits += all_frames[frame_idx].size_bits
             frame_idx += 1
+            total_frames += 1
         bin_duration_s = bin_end - bin_start
         total_airtime_s = total_airtime_us / 1e6
         sustained_bitrate_bps = total_bits / bin_duration_s
@@ -202,7 +206,7 @@ def network_density(path: str):
 
         # Finished going through all devices for this bin, now calculate bin level values
         total_rssi: float = 0.0
-        total_frames: int = 0
+        total_beacon_frames: int = 0
         total_score: float = 0.0
 
         # Traffic and airtime parts of our density score
@@ -222,7 +226,7 @@ def network_density(path: str):
                     total_score += value.score
 
                 total_rssi += value.total_rssi
-                total_frames += value.total_frames
+                total_beacon_frames += value.total_frames
 
             # Weighted AP score
             N_eff = getApRating(total_score=total_score, type=band)
@@ -235,7 +239,8 @@ def network_density(path: str):
                     devices=list(devices.values()),
                     total_devices_in_interval=len(devices),
                     total_frames_in_interval=total_frames,
-                    avg_rssi_in_interval=total_rssi / (total_frames),
+                    total_beacon_frames_in_interval=total_beacon_frames,
+                    avg_beacon_rssi_in_interval=total_rssi / (total_beacon_frames),
                     density_rating_in_interval=density_score,
                     N_eff=N_eff,
                     D=D,
@@ -249,8 +254,9 @@ def network_density(path: str):
                 Bin(
                     devices=[],
                     total_devices_in_interval=0,
-                    total_frames_in_interval=0,
-                    avg_rssi_in_interval=0,
+                    total_frames_in_interval=total_frames,
+                    total_beacon_frames_in_interval=total_beacon_frames,
+                    avg_beacon_rssi_in_interval=0,
                     density_rating_in_interval=0.35 * U + 0.15 * D,
                     N_eff=0,
                     U=U,
@@ -266,9 +272,10 @@ def network_density(path: str):
         interval=interval_s,
         bins=all_bins,
         total_devices=len(found_devices),
-        total_frames=len(beacon_frames),
-        avg_rssi=sum(
-            bin.avg_rssi_in_interval * (bin.end_time - bin.start_time) / lifespan
+        total_frames=len(all_frames),
+        total_beacon_frames=len(beacon_frames),
+        avg_beacon_rssi=sum(
+            bin.avg_beacon_rssi_in_interval * (bin.end_time - bin.start_time) / lifespan
             for bin in all_bins
         ),
         density_rating=sum(
@@ -287,12 +294,12 @@ def get_normalized_rssi(rssi: float, type: Type):
     return math.sqrt(max(0, (rssi - R_MIN[type.value])))
 
 
-def find_time_interval(lifespan_s: float) -> int:
+def find_time_interval(lifespan_s: float) -> float:
     """
     Returns the time interval in seconds
     """
-    possible_intervals = [1, 2, 5, 10, 15, 20, 30]
-    TARGET_BINS = 10
+    possible_intervals = [0.25, 0.5, 1, 2, 5, 10, 15, 20, 30]
+    TARGET_BINS = 20
 
     best_interval = possible_intervals[0]
     best_diff = float("inf")

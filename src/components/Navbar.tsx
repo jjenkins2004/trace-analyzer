@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 // Navigation items
 const navItems = [
   { name: "Upload", to: "/" },
-  { name: "Compare", to: "/compare" },
+  { name: "Analyze", to: "/analyze" },
   { name: "Reports", to: "/reports" },
 ];
 

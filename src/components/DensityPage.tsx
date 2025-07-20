@@ -1,8 +1,9 @@
 // ReportPage.tsx
 // React component to display a full report based on ReportData, using Tailwind CSS.
 
+import { useState } from "react";
 import React from "react";
-import { DeviceInfo, DensityReport } from "../types";
+import { DeviceInfo, DensityReport, Bin } from "../types";
 import {
   BarChart,
   Bar,
@@ -16,6 +17,72 @@ import {
   TooltipContentProps,
 } from "recharts";
 
+enum GraphMetric {
+  densityRating = "Density Score",
+  nEff = "AP Score",
+  u = "Airtime Score",
+  d = "Traffic Score",
+  advertiserRSSI = "Advertiser RSSI (dBm)",
+  frames = "Total Frames",
+  beacon_frames = "Beacon Frames",
+  devices = "Advertising Devices",
+  none = "None",
+}
+
+interface MetricConfig {
+  dataKey: string;
+  unit: string;
+  color: string;
+}
+
+const GraphMetricConfig: Record<GraphMetric, MetricConfig> = {
+  [GraphMetric.densityRating]: {
+    dataKey: "density_rating_in_interval",
+    unit: "Score",
+    color: "var(--color-primary)",
+  },
+  [GraphMetric.nEff]: {
+    dataKey: "N_eff",
+    unit: "Score",
+    color: "var(--color-secondary)",
+  },
+  [GraphMetric.u]: {
+    dataKey: "U",
+    unit: "Score",
+    color: "var(--color-text-rose)",
+  },
+  [GraphMetric.d]: {
+    dataKey: "D",
+    unit: "Score",
+    color: "var(--color-text-light-blue)",
+  },
+  [GraphMetric.advertiserRSSI]: {
+    dataKey: "avg_beacon_rssi_in_interval",
+    unit: "RSSI",
+    color: "var(--color-text-yellow)",
+  },
+  [GraphMetric.frames]: {
+    dataKey: "total_frames_in_interval",
+    unit: "count",
+    color: "var(--color-text-light-purple)",
+  },
+  [GraphMetric.beacon_frames]: {
+    dataKey: "total_beacon_frames_in_interval",
+    unit: "count",
+    color: "var(--color-text-green-muted)",
+  },
+  [GraphMetric.devices]: {
+    dataKey: "total_devices_in_interval",
+    unit: "count",
+    color: "var(--color-text-orange)",
+  },
+  [GraphMetric.none]: {
+    dataKey: "",
+    unit: "",
+    color: "var(--color-text-muted)",
+  },
+};
+
 function getDensityColor(score: number): string {
   if (score < 0.2) return "text-green-500";
   if (score < 0.4) return "text-lime-400";
@@ -25,9 +92,9 @@ function getDensityColor(score: number): string {
 }
 
 function getDensityText(score: number): string {
-  if (score < 0.2) return "Very Sparse";
-  if (score < 0.4) return "Sparse";
-  if (score < 0.6) return "Moderately Dense";
+  if (score < 0.2) return "Sparse";
+  if (score < 0.4) return "Moderately Dense";
+  if (score < 0.6) return "Dense";
   if (score < 0.8) return "Very Dense";
   return "Extremely Dense";
 }
@@ -39,16 +106,14 @@ export interface DensityPageProps {
 const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
   const { title, date, density } = report;
 
-  function getDensityGraphData() {
-    return density.bins.map((bin, index) => {
-      return {
-        id: index,
-        startTime: bin.start_time,
-        endTime: bin.end_time,
-        timestamp: bin.start_time + (bin.end_time - bin.start_time) / 2,
-        averageRSSI: bin.avg_rssi_in_interval,
-        value: bin.density_rating_in_interval,
-      } as DensityDataPoint;
+  const [leftMetric, setLeftMetric] = useState<GraphMetric>(
+    GraphMetric.densityRating
+  );
+  const [rightMetric, setRightMetric] = useState<GraphMetric>(GraphMetric.none);
+
+  function getDataPoints() {
+    return density.bins.map((val, indx) => {
+      return { id: indx, point: val } as OverlayGraphDataPoint;
     });
   }
 
@@ -64,7 +129,8 @@ const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
 
       // Create formatted string of device frame contribution
       const topThreeDevices = top3.map((dev) => {
-        const pct = (dev.total_frames / bin.total_frames_in_interval) * 100;
+        const pct =
+          (dev.total_frames / bin.total_beacon_frames_in_interval) * 100;
         return `${dev.sa} (${pct.toFixed(1)}%)`;
       });
 
@@ -76,7 +142,7 @@ const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
       return {
         id: index,
         interval,
-        frames: bin.total_frames_in_interval,
+        frames: bin.total_beacon_frames_in_interval,
         topThreeDevices,
         devices: bin.total_devices_in_interval,
       };
@@ -148,12 +214,56 @@ const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
         </p>
       </div>
 
-      {/*Bin Graph*/}
+      {/*Overlay Graph*/}
       <section className="mb-12">
         <h2 className="text-2xl font-semibold text-primary-light mb-4">
-          Network Density over Time
+          Density Comparison
         </h2>
-        <DensityGraph data={getDensityGraphData()} />
+        <div className="flex space-x-4 mb-4">
+          <div>
+            <label className="text-text-muted block mb-1">Left Axis:</label>
+            <select
+              value={leftMetric}
+              onChange={(e) => setLeftMetric(e.target.value as GraphMetric)}
+              className="bg-background-dark text-text p-2 rounded"
+            >
+              {Object.values(GraphMetric).map((value) => (
+                <option
+                  key={value}
+                  value={value}
+                  disabled={value == rightMetric}
+                >
+                  {value}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-text-muted block mb-1">Right Axis:</label>
+            <select
+              value={rightMetric}
+              onChange={(e) => setRightMetric(e.target.value as GraphMetric)}
+              className="bg-background-dark text-text p-2 rounded"
+            >
+              {Object.values(GraphMetric).map((value) => (
+                <option
+                  key={value}
+                  value={value}
+                  disabled={value == leftMetric}
+                >
+                  {value}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <OverlayGraph
+          data={getDataPoints()}
+          left={leftMetric}
+          right={rightMetric}
+        />
       </section>
 
       {/* Summary */}
@@ -181,7 +291,31 @@ const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
             >{`${getDensityText(density.density_rating)}`}</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-3 gap-6 mb-8">
+          <div className="bg-background-dark p-6 rounded-lg">
+            <p className="text-md text-text-muted">Access Point Score</p>
+            <p
+              className={`text-xl ${getDensityColor(
+                density.N_eff
+              )} font-medium`}
+            >
+              {density.N_eff.toPrecision(3)}
+            </p>
+          </div>
+          <div className="bg-background-dark p-6 rounded-lg">
+            <p className="text-md text-text-muted">Airtime Score</p>
+            <p className={`text-xl ${getDensityColor(density.U)} font-medium`}>
+              {density.U.toPrecision(3)}
+            </p>
+          </div>
+          <div className="bg-background-dark p-6 rounded-lg">
+            <p className="text-md text-text-muted">Traffic Score</p>
+            <p className={`text-xl ${getDensityColor(density.D)} font-medium`}>
+              {density.D.toPrecision(3)}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-6">
           <div className="bg-background-dark p-4 rounded-lg">
             <p className="text-sm text-text-muted">Interval (s)</p>
             <p className="text-xl font-medium">{density.interval}</p>
@@ -195,8 +329,10 @@ const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
             <p className="text-xl font-medium">{density.total_frames}</p>
           </div>
           <div className="bg-background-dark p-4 rounded-lg">
-            <p className="text-sm text-text-muted">Avg SNR</p>
-            <p className="text-xl font-medium">{density.avg_rssi.toFixed(2)}</p>
+            <p className="text-sm text-text-muted">Avg Advertiser RSSI</p>
+            <p className="text-xl font-medium">
+              {density.avg_beacon_rssi.toFixed(2)}
+            </p>
           </div>
         </div>
       </section>
@@ -204,7 +340,7 @@ const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
       {/*Frames Data*/}
       <section className="mb-12">
         <h2 className="text-2xl font-semibold text-primary-light mb-4">
-          Frames Captured
+          Beacon Frames Captured
         </h2>
         <FrameGraph data={getFrameGraphData()} />
       </section>
@@ -222,7 +358,7 @@ const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
                   Source Address
                 </th>
                 <th className="px-4 py-2 text-right text-sm font-medium text-text-muted">
-                  Total Frames
+                  Total Advertising Frames
                 </th>
                 <th className="px-4 py-2 text-right text-sm font-medium text-text-muted">
                   Avg SNR per Frame
@@ -264,69 +400,127 @@ const DensityPage: React.FC<DensityPageProps> = ({ report }) => {
 
 export default DensityPage;
 
-interface DensityDataPoint {
+interface OverlayGraphDataPoint {
   id: number;
-  startTime: number;
-  endTime: number;
-  timestamp: number;
-  averageRSSI: number;
-  value: number;
+  point: Bin;
 }
 
-interface DensityGraphProps {
-  data: DensityDataPoint[];
+interface OverlayGraphProps {
+  data: OverlayGraphDataPoint[];
+  left: GraphMetric;
+  right: GraphMetric;
 }
-const DensityGraph: React.FC<DensityGraphProps> = ({ data }) => {
+const OverlayGraph: React.FC<OverlayGraphProps> = ({ data, left, right }) => {
+  type AxisSide = "left" | "right";
+
   const CustomTooltip: React.FC<TooltipContentProps<number, string>> = ({
     active,
     payload,
   }) => {
     if (!active || !payload || !payload.length) return null;
 
-    const data = payload[0].payload;
+    const point = (payload[0].payload as OverlayGraphDataPoint).point;
+    const interval = `${point.start_time}s - ${point.end_time.toLocaleString(
+      undefined,
+      {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }
+    )}s`;
 
     return (
-      <div className="bg-background text-text-muted text-sm p-3 rounded shadow-lg flex flex-col gap-1.5">
-        <div className="font-medium text-text-light-blue">
-          {data.startTime.toFixed(1)}s – {data.endTime.toFixed(1)}s
-        </div>
-        <div>
-          Density Score:{" "}
-          <span className={`font-bold ${getDensityColor(data.value)}`}>
-            {data.value.toPrecision(2)}
-          </span>
-        </div>
-        <div className="font-extralight text-xs">
-          Average RSSI:{" "}
-          <span className="text-text"> {data.averageRSSI.toFixed(1)}</span>
-        </div>
+      <div className="bg-gray-800 text-text-muted text-sm p-3 rounded shadow-lg">
+        <div className="font-medium text-text-light-blue mb-2">{`${interval}`}</div>
+
+        {left !== GraphMetric.none && (
+          <div className="mb-0.5">
+            <span className="font-semibold">{left}</span>
+            {": "}
+            <span style={{ color: GraphMetricConfig[left].color }}>
+              {(
+                point[GraphMetricConfig[left].dataKey as keyof Bin] as number
+              ).toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+        )}
+
+        {right !== GraphMetric.none && (
+          <div className="mb-0.5">
+            <span className="font-semibold">{right}</span>
+            {": "}
+            <span style={{ color: GraphMetricConfig[right].color }}>
+              {(
+                point[GraphMetricConfig[right].dataKey as keyof Bin] as number
+              ).toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+        )}
       </div>
     );
   };
 
+  function renderMetric(
+    side: AxisSide,
+    metric: GraphMetric
+  ): JSX.Element | null {
+    if (metric === GraphMetric.none) return null;
+
+    const { dataKey, unit, color } = GraphMetricConfig[metric];
+
+    return (
+      <>
+        <YAxis
+          yAxisId={side}
+          orientation={side}
+          stroke={color}
+          label={{
+            value: unit,
+            position: "insideTop",
+            offset: -30,
+            fill: color,
+          }}
+        />
+        <Line
+          yAxisId={side}
+          type="monotone"
+          dataKey={`point.${dataKey}`}
+          stroke={color}
+          strokeWidth={2}
+          dot={false}
+          activeDot={true}
+          isAnimationActive={true}
+        />
+      </>
+    );
+  }
+
   return (
-    <div style={{ width: "100%", height: 300 }}>
+    <div style={{ width: "100%", height: 500 }}>
       <ResponsiveContainer>
-        <LineChart data={data}>
-          <CartesianGrid stroke="#444" strokeDasharray="3 3" />
+        <LineChart
+          data={data}
+          margin={{ bottom: 20, left: 30, right: 30, top: 40 }}
+        >
           <XAxis
             dataKey="id"
-            type="number"
-            scale="linear"
+            stroke="var(--color-text-muted)"
             domain={[0, "dataMax"]}
-            tickFormatter={(id) => `${data[id].timestamp.toFixed(1)}`}
+            tickFormatter={(idx) => {
+              const val = data[idx].point.end_time;
+              return val.toFixed(2).replace(/\.?0+$/, "");
+            }}
+            interval={1}
           />
-          <YAxis />
           <Tooltip content={CustomTooltip} />
-
-          <Line
-            type="monotone"
-            dataKey="value"
-            stroke="#4f46e5"
-            strokeWidth={2}
-            dot={{ r: 3 }}
-            activeDot={{ r: 6 }}
-          />
+          <CartesianGrid stroke="#444" strokeDasharray="3 3" />
+          {renderMetric("left", left)}
+          {renderMetric("right", right)}
         </LineChart>
       </ResponsiveContainer>
     </div>

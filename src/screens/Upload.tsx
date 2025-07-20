@@ -20,9 +20,10 @@ import SuccessScreen from "../components/SuccessScreen";
 
 export interface UploadProps {
   setReports: Dispatch<SetStateAction<ReportData[]>>;
+  onShowReport: (report: ReportData) => void;
 }
 
-const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
+const UploadPage: React.FC<UploadProps> = ({ setReports, onShowReport }) => {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState<string>("");
   const [processing, setProcessing] = useState<boolean>(false);
@@ -32,6 +33,7 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
   const [hostMac, setHostMac] = useState<string>("");
   const [apMac, setApMac] = useState<string>("");
   const [reportType, setReportType] = useState<Process>(Process.DENSITY);
+  const [createdReport, setCreatedReport] = useState<ReportData | null>(null);
 
   const handleFile = (selected: FileList | null) => {
     if (!selected || selected.length === 0) return;
@@ -83,7 +85,9 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
         return;
       }
       if (hostMac.length != 17) {
-        setError(createError("Provide a valid host MAC address!", Errors.NO_HOST));
+        setError(
+          createError("Provide a valid host MAC address!", Errors.NO_HOST)
+        );
         setTimeout(() => setError(null), 5000);
         return;
       }
@@ -102,6 +106,7 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
       .then((report) => {
         console.log(report);
         setReports((prev) => [report, ...prev]);
+        setCreatedReport(report);
         setSuccess(true);
       })
       .catch((err) => {
@@ -137,7 +142,11 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
           setSuccess(false);
           setError(null);
         }}
-        onShowReport={() => {}}
+        onShowReport={() => {
+          if (createdReport != null) {
+            onShowReport(createdReport);
+          }
+        }}
       />
     );
   }
@@ -295,7 +304,9 @@ const UploadPage: React.FC<UploadProps> = ({ setReports }) => {
                   <input
                     type="text"
                     value={hostMac}
-                    onChange={(e) => setHostMac(formatMacAddress(e.target.value))}
+                    onChange={(e) =>
+                      setHostMac(formatMacAddress(e.target.value))
+                    }
                     onPaste={(e) => {
                       e.preventDefault();
                       const pasted = e.clipboardData.getData("text");
