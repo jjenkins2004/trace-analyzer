@@ -13,10 +13,10 @@
   },
   "build": {
     "files": [
-    "dist/**/*",         
-    "dist-electron/**/*", 
-    "package.json"
-  ],
+      "dist/renderer/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
     "mac": {
       "icon": "icon/app-icon.icns"
     },
@@ -34,17 +34,11 @@
     ]
   },
   "dependencies": {
-    "@fontsource/jetbrains-mono": "^5.2.6",
-    "@tailwindcss/vite": "^4.1.10",
-    "electron-store": "^10.1.0",
-    "lucide-react": "^0.522.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^7.6.2",
-    "recharts": "^3.0.2",
-    "tailwindcss": "^4.1.10"
+    "electron-store": "^10.1.0"
   },
   "devDependencies": {
+    "@fontsource/jetbrains-mono": "^5.2.6",
+    "@tailwindcss/vite": "^4.1.11",
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
@@ -55,6 +49,12 @@
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "lucide-react": "^0.525.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.7.1",
+    "recharts": "^3.1.0",
+    "tailwindcss": "^4.1.11",
     "typescript": "^5.2.2",
     "vite": "^5.1.6",
     "vite-plugin-electron": "^0.28.6",
