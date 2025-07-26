@@ -192,7 +192,10 @@ def network_density(path: str):
         sustained_bitrate_bps = total_bits / bin_duration_s
         sustained_bitrate_mbps = sustained_bitrate_bps / 1e6
         percent_airtime = (total_airtime_s / bin_duration_s) * 100
-        retry_rate = total_retries / total_data * 100
+        if total_data:
+            retry_rate = (total_retries / total_data) * 100
+        else:
+            retry_rate = 0.0
 
         # Parse through beacon frames for this bin
         devices: dict[str, DeviceInfo] = {}
@@ -291,7 +294,7 @@ def network_density(path: str):
         total_frames=len(all_frames),
         total_beacon_frames=len(beacon_frames),
         retry_rate=sum(
-            bin.retry_rate * (bin.end_time - bin.bin_start) / lifespan
+            bin.retry_rate * (bin.end_time - bin.start_time) / lifespan
             for bin in all_bins
         ),
         avg_beacon_rssi=sum(

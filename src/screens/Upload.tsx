@@ -110,7 +110,9 @@ const UploadPage: React.FC<UploadProps> = ({ setReports, onShowReport }) => {
         setSuccess(true);
       })
       .catch((err) => {
-        setError(parseError(err));
+        const foundError = parseError(err);
+        setError(foundError);
+        console.log("Error:", foundError);
       })
       .finally(() => {
         setProcessing(false);
@@ -359,6 +361,8 @@ const UploadPage: React.FC<UploadProps> = ({ setReports, onShowReport }) => {
                       ? "Could not find frames with given parameters."
                       : error.code === Errors.PROCESSING_ERROR
                       ? "An error occurred while processing the trace."
+                      : error.code == Errors.TIME_OUT
+                      ? "Processing request timed-out. Trace may be unprocessable."
                       : error.code === Errors.UNKNOWN
                       ? "An unknown error occurred."
                       : error.message}

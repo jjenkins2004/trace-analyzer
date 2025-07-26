@@ -3,11 +3,35 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "productName": "Packet Analyzer",
+  "appId": "com.joshuajenkins.packetanalyzer",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
+  },
+  "build": {
+    "files": [
+    "dist/**/*",         
+    "dist-electron/**/*", 
+    "package.json"
+  ],
+    "mac": {
+      "icon": "icon/app-icon.icns"
+    },
+    "extraResources": [
+      {
+        "from": "core-build/",
+        "to": "backend/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "backend/**"
+    ]
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.2.6",

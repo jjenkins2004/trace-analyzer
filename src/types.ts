@@ -29,6 +29,7 @@ export enum Errors {
   NO_AP,
   NO_DATA,
   PROCESSING_ERROR,
+  TIME_OUT,
   UNKNOWN,
 }
 

@@ -60,7 +60,7 @@ if __name__ == "__main__":
     #     host="28:02:2e:28:87:4f",
     # )
 
-    result = analyze_density(path="test_pcap/very-dense.pcap")
+    result = analyze_density(path="test_pcap/legacy.pcap")
 
     pprint.pprint(result, width=80)
 

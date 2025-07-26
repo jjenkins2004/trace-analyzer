@@ -1,8 +1,10 @@
-import { spawn } from "node:child_process";
+import { ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ipcMain } from "electron";
+import { app } from "electron";
+import fs from "fs";
 
 import {
   createError,
@@ -13,29 +15,46 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Create the python process, by running the equiv of activating the virtual environment then running python3 `path/main.py`.
-// Also check if the virtual environment is created because we use that python binary to execute our process, that way we have installed modules
-// The pipe, pipe, pipe stuff creates pipes between the python stdIOs with our stdIOs
-const pythonExe =
-  process.platform === "win32"
-    ? path.join(__dirname, "..", "core", ".venv", "Scripts", "python3.13.exe")
-    : path.join(__dirname, "..", "core", ".venv", "bin", "python3.13");
-import fs from "fs";
-if (!fs.existsSync(pythonExe)) {
-  throw new Error(
-    `Python executable not found at ${pythonExe}. Create a python virtual environment named '.venv' in the core folder, and install requirements.txt`
+let proc: ChildProcessWithoutNullStreams;
+
+if (!app.isPackaged) {
+  // Create the python process, by running the equiv of activating the virtual environment then running python3 `path/main.py`.
+  // Also check if the virtual environment is created because we use that python binary to execute our process, that way we have installed modules
+  // The pipe, pipe, pipe stuff creates pipes between the python stdIOs with our stdIOs
+  const pythonExe = path.join(
+    __dirname,
+    "..",
+    "core",
+    ".venv",
+    "bin",
+    "python3.13"
   );
+  if (!fs.existsSync(pythonExe)) {
+    throw new Error(
+      `Python executable not found at ${pythonExe}. Create a python virtual environment named '.venv' in the core folder, and install requirements.txt`
+    );
+  }
+  proc = spawn(pythonExe, [path.join(__dirname, "../core/main.py")], {
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+} else {
+  // in production, use the packaged binary file
+  const exePath = path.join(process.resourcesPath, "backend", "main");
+
+  if (!fs.existsSync(exePath)) {
+    throw new Error(`executable not found at ${exePath}. `);
+  }
+
+  proc = spawn(exePath, [], {
+    stdio: ["pipe", "pipe", "pipe"],
+  });
 }
-const proc = spawn(pythonExe, [path.join(__dirname, "../core/main.py")], {
-  stdio: ["pipe", "pipe", "pipe"],
-});
-proc.stderr.on("data", chunk => {
+proc.stderr.on("data", (chunk) => {
   console.error("Python stderr:", chunk.toString());
 });
 proc.on("exit", (code, signal) => {
   console.error(`Python exited (code=${code}, signal=${signal})`);
 });
-
 
 // Create a readline interface on proc.stdout (where our python process will write to),
 // which makes sure what we get is the full message until a '\n'
@@ -89,7 +108,7 @@ export async function request(payload: object) {
       reject(
         createError(
           "Processing timed out, the file may be too large",
-          Errors.PROCESSING_ERROR
+          Errors.TIME_OUT
         )
       );
     }, 60000);
